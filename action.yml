@@ -27,7 +27,7 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ runner.os == 'Windows' && '/tmp/libjemalloc.dll' || runner.os == 'Linux' && '/tmp/libjemalloc.so.2' || '/tmp/libjemalloc.dylib' }}
-        key: v2-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
+        key: v1-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
 
     - name: "Relocate jemalloc to expected directory"
       if: steps.cache-jemalloc.outputs.cache-hit == 'true'
@@ -36,7 +36,7 @@ runs:
         if [ "${{ runner.os }}" == "Linux" ]; then
           sudo mv /tmp/libjemalloc.so.2 /usr/local/lib/
         elif [ "${{ runner.os }}" == "macOS" ]; then
-          sudo mv /tmp/libjemalloc.dylib /usr/local/lib/
+          sudo mv /tmp/libjemalloc.2.dylib /usr/local/lib/
         elif [ "${{ runner.os }}" == "Windows" ]; then
           mv /tmp/libjemalloc.dll "C:\\Program Files\\jemalloc\\"
         fi
@@ -85,8 +85,8 @@ runs:
       uses: actions/cache/save@v4
       if: steps.cache-jemalloc.outputs.cache-hit != 'true'
       with:
-        path: ${{ runner.os == 'Windows' && '/tmp/libjemalloc.dll' || runner.os == 'Linux' && '/tmp/libjemalloc.so.2' || '/tmp/libjemalloc.dylib' }}
-        key: v2-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
+        path: ${{ runner.os == 'Windows' && '/tmp/libjemalloc.dll' || runner.os == 'Linux' && '/tmp/libjemalloc.so.2' || '/tmp/libjemalloc.2.dylib' }}
+        key: v1-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
 
 branding:
   icon: "cpu"
