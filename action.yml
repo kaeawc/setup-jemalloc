@@ -12,6 +12,16 @@ outputs: {}
 runs:
   using: "composite"
   steps:
+    - name: "Install MSYS2 on Windows"
+      if: ${{ runner.os == 'Windows' }}
+      shell: bash
+      run: |
+        # Install MSYS2 for compatible build tools
+        choco install msys2 -y
+        # Add MSYS2 binaries to PATH
+        echo "::add-path::C:\\tools\\msys64\\usr\\bin"
+        echo "::add-path::C:\\tools\\msys64\\mingw64\\bin"
+
     - name: "Restore jemalloc"
       id: cache-jemalloc
       uses: actions/cache/restore@v4
@@ -52,7 +62,7 @@ runs:
           make
           sudo make install
         elif [ "${{ runner.os }}" == "Windows" ]; then
-          # Use a compatible build method for Windows (assuming MSYS2)
+          # Use MSYS2 for compatible build tools
           ./configure
           make
           cp ./lib/libjemalloc.dll "C:\\Program Files\\jemalloc\\jemalloc.dll"
