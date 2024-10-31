@@ -1,0 +1,84 @@
+# action.yml
+name: "setup-jemalloc"
+description: "An action to download, install, and cache jemalloc on Linux, macOS, and Windows runners"
+author: "Jason Pearson"
+inputs:
+  jemalloc-version:
+    description: "Version of jemalloc to use"
+    required: "true"
+    default: "5.3.0"
+outputs: {}
+
+runs:
+  using: "composite"
+  steps:
+    - name: "Restore jemalloc"
+      id: cache-jemalloc
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ runner.os == 'Windows' && '/tmp/libjemalloc.dll' || runner.os == 'Linux' && '/tmp/libjemalloc.so.2' || '/tmp/libjemalloc.dylib' }}
+        key: v2-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
+
+    - name: "Relocate jemalloc to expected directory"
+      if: steps.cache-jemalloc.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        if [ "${{ runner.os }}" == "Linux" ]; then
+          sudo mv /tmp/libjemalloc.so.2 /usr/local/lib/
+        elif [ "${{ runner.os }}" == "macOS" ]; then
+          sudo mv /tmp/libjemalloc.dylib /usr/local/lib/
+        elif [ "${{ runner.os }}" == "Windows" ]; then
+          mv /tmp/libjemalloc.dll "C:\\Program Files\\jemalloc\\"
+        fi
+
+    - name: "Download jemalloc"
+      if: steps.cache-jemalloc.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        curl -Ls https://github.com/jemalloc/jemalloc/releases/download/${{ inputs.jemalloc-version }}/jemalloc-${{ inputs.jemalloc-version }}.tar.bz2 -o jemalloc-${{ inputs.jemalloc-version }}.tar.bz2
+
+    - name: "Unzip jemalloc"
+      if: steps.cache-jemalloc.outputs.cache-hit != 'true'
+      shell: bash
+      run: tar xvf jemalloc-${{ inputs.jemalloc-version }}.tar.bz2
+
+    - name: "Configure and install jemalloc"
+      if: steps.cache-jemalloc.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        cd jemalloc-${{ inputs.jemalloc-version }}
+        if [ "${{ runner.os }}" == "Linux" ] || [ "${{ runner.os }}" == "macOS" ]; then
+          ./configure
+          make
+          sudo make install
+        elif [ "${{ runner.os }}" == "Windows" ]; then
+          # Use a compatible build method for Windows (assuming MSYS2)
+          ./configure
+          make
+          cp ./lib/libjemalloc.dll "C:\\Program Files\\jemalloc\\jemalloc.dll"
+        fi
+
+    - name: "Configure LD_PRELOAD (or equivalent)"
+      shell: bash
+      run: |
+        if [ "${{ runner.os }}" == "Linux" ]; then
+          echo 'export LD_PRELOAD=/usr/local/lib/libjemalloc.so.2' >> $GITHUB_ENV
+          cp /usr/local/lib/libjemalloc.so.2 /tmp/
+        elif [ "${{ runner.os }}" == "macOS" ]; then
+          echo 'export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.dylib' >> $GITHUB_ENV
+          cp /usr/local/lib/libjemalloc.dylib /tmp/
+        elif [ "${{ runner.os }}" == "Windows" ]; then
+          echo 'export PATH="C:\\Program Files\\jemalloc\\jemalloc.dll;$PATH"' >> $GITHUB_ENV
+        fi
+
+    - name: "Save jemalloc"
+      uses: actions/cache/save@v4
+      if: steps.cache-jemalloc.outputs.cache-hit != 'true'
+      with:
+        path: ${{ runner.os == 'Windows' && '/tmp/libjemalloc.dll' || runner.os == 'Linux' && '/tmp/libjemalloc.so.2' || '/tmp/libjemalloc.dylib' }}
+        key: v2-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
+
+branding:
+  icon: "cpu"
+  color: "blue"
+
