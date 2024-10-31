@@ -75,8 +75,8 @@ runs:
           echo 'export LD_PRELOAD=/usr/local/lib/libjemalloc.so.2' >> $GITHUB_ENV
           cp /usr/local/lib/libjemalloc.so.2 /tmp/
         elif [ "${{ runner.os }}" == "macOS" ]; then
-          echo 'export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.dylib' >> $GITHUB_ENV
-          cp /usr/local/lib/libjemalloc.dylib /tmp/
+          echo 'export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.2.dylib' >> $GITHUB_ENV
+          cp /usr/local/lib/libjemalloc.2.dylib /tmp/
         elif [ "${{ runner.os }}" == "Windows" ]; then
           echo 'export PATH="C:\\Program Files\\jemalloc\\jemalloc.dll;$PATH"' >> $GITHUB_ENV
         fi
