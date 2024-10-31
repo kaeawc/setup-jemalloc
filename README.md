@@ -1,19 +1,28 @@
-# setup-jemalloc
-A GitHub Action to download, install, and cache jemalloc on any platform runner. Subsequent workflow steps should automatically benefit from jemalloc replacing the default malloc, which can free up native memory left otherwise unusable by fragmentation.
+# setup-jemalloc GitHub Action
+![badge](https://github.com/kaeawc/setup-jemalloc/actions/workflows/commit.yml/badge.svg)
+
+This action downloads, installs, and caches jemalloc on any platform runner. Subsequent workflow steps should automatically benefit from jemalloc replacing the default malloc, which can free up native memory left otherwise unusable by fragmentation.
 
 ## Supported Platforms
 
 - `linux`
 - `macos`
-- `windows`
 
-## Usage
+## In Development Platforms
 
-To use this action in your workflow, add the following step:
+- `windows` 
 
+## Example
 ```yaml
-- name: Set up jemalloc
-  uses: kaeawc/setup-jemalloc@v1
-- name: Build Application
-  run: make
+jobs:
+  hash_string:
+    - name: Set up jemalloc
+      uses: kaeawc/setup-jemalloc@v1
+    - name: Build Application
+      run: make
 ```
+
+## Inputs
+| Argument | Description | Default | Required |
+|----------|-------------|---------|---------|
+| jemalloc-version    | The version of jemalloc to be used | 5.3.0 | yes |
