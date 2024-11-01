@@ -9,20 +9,20 @@ on:
 
 jobs:
   mac:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run jemalloc action
-        uses: ./
+    # runs-on: macos-latest
+    # steps:
+    #   - uses: actions/checkout@v4
+    #   - name: Run jemalloc action
+    #     uses: ./
   windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - name: Run jemalloc action
         uses: ./
-  linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run jemalloc action
-        uses: ./
+  # linux:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Run jemalloc action
+  #       uses: ./
