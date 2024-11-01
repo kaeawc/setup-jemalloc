@@ -26,7 +26,7 @@ runs:
       id: cache-jemalloc
       uses: actions/cache/restore@v4
       with:
-        path: ${{ runner.os == 'Windows' && '/tmp/libjemalloc.dll' || runner.os == 'Linux' && '/tmp/libjemalloc.so.2' || '/tmp/libjemalloc.dylib' }}
+        path: ${{ runner.os == 'Windows' && '/tmp/libjemalloc.dll' || runner.os == 'Linux' && '/tmp/libjemalloc.so.2' || '/tmp/libjemalloc.2.dylib' }}
         key: v1-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
 
     - name: "Relocate jemalloc to expected directory"
