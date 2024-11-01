@@ -59,6 +59,17 @@ runs:
           echo "C:\\tools\\msys64\\mingw64\\bin" >> $GITHUB_PATH
         fi
 
+    - name: "Pacman Tool Setup"
+      if: steps.cache-jemalloc.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        cd jemalloc-${{ inputs.jemalloc-version }}
+        if [ "${{ runner.os }}" == "Windows" ]; then
+          C:\\tools\\msys64\\usr\\bin\\bash.exe -c "pacman -Syu --noconfirm"
+          # Install necessary packages in MSYS2
+          C:\\tools\\msys64\\usr\\bin\\bash.exe -c "pacman -S --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-pthreads"
+        fi
+
     - name: "Configure and install jemalloc"
       if: steps.cache-jemalloc.outputs.cache-hit != 'true'
       shell: bash
@@ -69,9 +80,6 @@ runs:
           make
           sudo make install
         elif [ "${{ runner.os }}" == "Windows" ]; then
-          C:\\tools\\msys64\\usr\\bin\\bash.exe -c "pacman -Syu --noconfirm"
-          # Install necessary packages in MSYS2
-          C:\\tools\\msys64\\usr\\bin\\bash.exe -c "pacman -S --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-pthreads"
           ./configure
           mingw32-make
           cp ./lib/libjemalloc.dll "$RUNNER_TEMP/jemalloc/jemalloc.dll"
