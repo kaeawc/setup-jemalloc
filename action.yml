@@ -61,8 +61,10 @@ runs:
           # Add MSYS2 binaries to PATH
           echo "C:\\tools\\msys64\\usr\\bin" >> $GITHUB_PATH
           echo "C:\\tools\\msys64\\mingw64\\bin" >> $GITHUB_PATH
-          pacman -Syu --noconfirm
-          pacman -S --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-pthreads
+          # Update MSYS2 packages
+          C:\\tools\\msys64\\usr\\bin\\bash.exe -c "pacman -Syu --noconfirm"
+          # Install necessary packages in MSYS2
+          C:\\tools\\msys64\\usr\\bin\\bash.exe -c "pacman -S --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-pthreads"
           ./configure
           mingw32-make
           cp ./lib/libjemalloc.dll "$RUNNER_TEMP/jemalloc/jemalloc.dll"
