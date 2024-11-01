@@ -12,15 +12,6 @@ outputs: {}
 runs:
   using: "composite"
   steps:
-    - name: "Install MSYS2 on Windows"
-      if: ${{ runner.os == 'Windows' }}
-      shell: bash
-      run: |
-        # Install MSYS2 for compatible build tools
-        choco install msys2 -y
-        # Add MSYS2 binaries to PATH
-        echo "C:\\tools\\msys64\\usr\\bin" >> $GITHUB_PATH
-        echo "C:\\tools\\msys64\\mingw64\\bin" >> $GITHUB_PATH
 
     - name: "Restore jemalloc"
       id: cache-jemalloc
@@ -38,8 +29,20 @@ runs:
         elif [ "${{ runner.os }}" == "macOS" ]; then
           sudo cp /tmp/libjemalloc.2.dylib /usr/local/lib/
         elif [ "${{ runner.os }}" == "Windows" ]; then
-          cp /tmp/libjemalloc.dll "C:\\Program Files\\jemalloc\\"
+          cp /tmp/libjemalloc.dll "$RUNNER_TEMP/jemalloc/jemalloc.dll"
         fi
+
+    - name: "Install MSYS2 on Windows"
+      if: steps.cache-jemalloc.outputs.cache-hit != 'true' && ${{ runner.os == 'Windows' }}
+      shell: bash
+      run: |
+        # Install MSYS2 for compatible build tools
+        choco install msys2 -y
+        # Add MSYS2 binaries to PATH
+        echo "C:\\tools\\msys64\\usr\\bin" >> $GITHUB_PATH
+        echo "C:\\tools\\msys64\\mingw64\\bin" >> $GITHUB_PATH
+        pacman -Syu --noconfirm
+        pacman -S --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-pthreads
 
     - name: "Download jemalloc"
       if: steps.cache-jemalloc.outputs.cache-hit != 'true'
@@ -64,8 +67,8 @@ runs:
         elif [ "${{ runner.os }}" == "Windows" ]; then
           # Use MSYS2 for compatible build tools
           ./configure
-          make
-          cp ./lib/libjemalloc.dll "C:\\Program Files\\jemalloc\\jemalloc.dll"
+          mingw32-make
+          cp ./lib/libjemalloc.dll "$RUNNER_TEMP/jemalloc/jemalloc.dll"
         fi
 
     - name: "Configure LD_PRELOAD (or equivalent)"
@@ -78,7 +81,7 @@ runs:
           echo 'export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.2.dylib' >> $GITHUB_ENV
           cp /usr/local/lib/libjemalloc.2.dylib /tmp/
         elif [ "${{ runner.os }}" == "Windows" ]; then
-          echo "C:\\Program Files\\jemalloc\\jemalloc.dll" >> $GITHUB_PATH
+          echo "$RUNNER_TEMP/jemalloc/jemalloc.dll" >> $GITHUB_PATH
         fi
 
     - name: "Save jemalloc"
