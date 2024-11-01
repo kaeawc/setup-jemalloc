@@ -82,7 +82,7 @@ runs:
           make
           sudo make install
         elif [ "${{ runner.os }}" == "Windows" ]; then
-          export CC=gcc; source ../before_install.sh
+          export CC=cl; source ../before_install.sh
           ./configure
           autoconf
           mingw32-make -j3
