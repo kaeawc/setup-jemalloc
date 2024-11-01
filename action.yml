@@ -25,10 +25,13 @@ runs:
       shell: bash
       run: |
         if [ "${{ runner.os }}" == "Linux" ]; then
+          mkdir -p /usr/local/lib
           sudo cp /tmp/libjemalloc.so.2 /usr/local/lib/
         elif [ "${{ runner.os }}" == "macOS" ]; then
+          mkdir -p /usr/local/lib
           sudo cp /tmp/libjemalloc.2.dylib /usr/local/lib/
         elif [ "${{ runner.os }}" == "Windows" ]; then
+          mkdir -p "$RUNNER_TEMP/jemalloc"
           cp /tmp/libjemalloc.dll "$RUNNER_TEMP/jemalloc/jemalloc.dll"
         fi
 
@@ -70,9 +73,11 @@ runs:
       run: |
         if [ "${{ runner.os }}" == "Linux" ]; then
           echo 'export LD_PRELOAD=/usr/local/lib/libjemalloc.so.2' >> $GITHUB_ENV
+          mkdir -p /tmp
           cp /usr/local/lib/libjemalloc.so.2 /tmp/
         elif [ "${{ runner.os }}" == "macOS" ]; then
           echo 'export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.2.dylib' >> $GITHUB_ENV
+          mkdir -p /tmp
           cp /usr/local/lib/libjemalloc.2.dylib /tmp/
         elif [ "${{ runner.os }}" == "Windows" ]; then
           echo "$RUNNER_TEMP/jemalloc/jemalloc.dll" >> $GITHUB_PATH
