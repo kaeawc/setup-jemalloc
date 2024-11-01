@@ -60,7 +60,7 @@ runs:
         cd jemalloc-${{ inputs.jemalloc-version }}
         if [ "${{ runner.os }}" == "Windows" ]; then
           # Install MSYS2 for compatible build tools
-          choco install msys2 -y
+          choco install msys2 mingw -y
           # Add MSYS2 binaries to PATH
           echo "C:\\tools\\msys64\\usr\\bin" >> $GITHUB_PATH
           echo "C:\\tools\\msys64\\mingw64\\bin" >> $GITHUB_PATH
@@ -89,8 +89,9 @@ runs:
           make
           sudo make install
         elif [ "${{ runner.os }}" == "Windows" ]; then
-          export TRAVIS_OS_NAME="windows"; source ./scripts/windows/before_install.sh
+          source ./before_install.sh
           ./configure
+          autoconf
           mingw32-make -j3
           mingw32-make -k check
           cp ./lib/libjemalloc.dll "$RUNNER_TEMP/jemalloc/jemalloc.dll"
