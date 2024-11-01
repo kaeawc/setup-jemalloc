@@ -28,7 +28,7 @@ runs:
           mkdir -p /usr/local/lib
           sudo cp /tmp/libjemalloc.so.2 /usr/local/lib/
         elif [ "${{ runner.os }}" == "macOS" ]; then
-          mkdir -p /usr/local/lib
+          sudo mkdir -p /usr/local/lib
           sudo cp /tmp/libjemalloc.2.dylib /usr/local/lib/
         elif [ "${{ runner.os }}" == "Windows" ]; then
           mkdir -p "$RUNNER_TEMP/jemalloc"
