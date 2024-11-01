@@ -78,7 +78,7 @@ runs:
           echo 'export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.2.dylib' >> $GITHUB_ENV
           cp /usr/local/lib/libjemalloc.2.dylib /tmp/
         elif [ "${{ runner.os }}" == "Windows" ]; then
-          echo 'export PATH="C:\\Program Files\\jemalloc\\jemalloc.dll;$PATH"' >> $GITHUB_ENV
+          echo "C:\\Program Files\\jemalloc\\jemalloc.dll" >> $GITHUB_PATH
         fi
 
     - name: "Save jemalloc"
