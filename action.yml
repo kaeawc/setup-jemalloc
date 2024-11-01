@@ -46,6 +46,13 @@ runs:
       shell: bash
       run: tar xvf jemalloc-${{ inputs.jemalloc-version }}.tar.bz2
 
+    - name: "Inspect the extracted tar"
+      if: steps.cache-jemalloc.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        cd jemalloc-${{ inputs.jemalloc-version }}
+        find .
+
     - name: "Compilation Tool Setup"
       if: steps.cache-jemalloc.outputs.cache-hit != 'true'
       shell: bash
