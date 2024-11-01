@@ -63,7 +63,6 @@ runs:
       if: steps.cache-jemalloc.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        cd jemalloc-${{ inputs.jemalloc-version }}
         if [ "${{ runner.os }}" == "Windows" ]; then
           C:\\tools\\msys64\\usr\\bin\\bash.exe -c "pacman -Syu --noconfirm"
           # Install necessary packages in MSYS2
@@ -97,6 +96,7 @@ runs:
           mkdir -p /tmp
           cp /usr/local/lib/libjemalloc.2.dylib /tmp/
         elif [ "${{ runner.os }}" == "Windows" ]; then
+          cp "$RUNNER_TEMP/jemalloc/jemalloc.dll" /tmp/
           echo "$RUNNER_TEMP/jemalloc/jemalloc.dll" >> $GITHUB_PATH
         fi
 
