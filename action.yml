@@ -27,7 +27,7 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: ${{ runner.os == 'Windows' && '/tmp/libjemalloc.dll' || runner.os == 'Linux' && '/tmp/libjemalloc.so.2' || '/tmp/libjemalloc.2.dylib' }}
-        key: v1-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
+        key: v4-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
 
     - name: "Relocate jemalloc to expected directory"
       if: steps.cache-jemalloc.outputs.cache-hit == 'true'
@@ -86,7 +86,7 @@ runs:
       if: steps.cache-jemalloc.outputs.cache-hit != 'true'
       with:
         path: ${{ runner.os == 'Windows' && '/tmp/libjemalloc.dll' || runner.os == 'Linux' && '/tmp/libjemalloc.so.2' || '/tmp/libjemalloc.2.dylib' }}
-        key: v1-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
+        key: v4-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
 
 branding:
   icon: "cpu"
