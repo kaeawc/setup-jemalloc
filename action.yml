@@ -13,12 +13,13 @@ runs:
   using: "composite"
   steps:
 
-    - name: "Prevent Windows"
-      if: ${{ runner.os }} == "Windows"
+    - name: "Check Platform"
       shell: bash
       run: |
-        # Cannot yet support Windows platform
-        exit 1
+        if [ "${{ runner.os }}" == "Linux" ]; then
+          echo "Cannot yet support Windows platform"
+          exit 1
+        fi
 
     - name: "Restore jemalloc"
       id: cache-jemalloc
