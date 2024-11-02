@@ -17,7 +17,7 @@ This action downloads, installs, and caches jemalloc on any platform runner. Sub
 jobs:
   hash_string:
     - name: Set up jemalloc
-      uses: kaeawc/setup-jemalloc@v1
+      uses: kaeawc/setup-jemalloc@v0.0.1
     - name: Build Application
       run: make
 ```
