@@ -13,6 +13,13 @@ runs:
   using: "composite"
   steps:
 
+    - name: "Prevent Windows"
+      if: ${{ runner.os }} == "Windows"
+      shell: bash
+      run: |
+        # Cannot yet support Windows platform
+        exit 1
+
     - name: "Restore jemalloc"
       id: cache-jemalloc
       uses: actions/cache/restore@v4
