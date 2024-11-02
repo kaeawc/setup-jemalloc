@@ -16,7 +16,7 @@ runs:
     - name: "Check Platform"
       shell: bash
       run: |
-        if [ "${{ runner.os }}" == "Linux" ]; then
+        if [ "${{ runner.os }}" == "Windows" ]; then
           echo "Cannot yet support Windows platform"
           exit 1
         fi
