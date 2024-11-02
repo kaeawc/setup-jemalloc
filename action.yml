@@ -67,7 +67,7 @@ runs:
           # Update package database
           C:\\tools\\msys64\\usr\\bin\\bash.exe -c "pacman -Sy --noconfirm"
           # Download packages
-          C:\\tools\\msys64\\usr\\bin\\bash.exe -c "pacman -S --noconfirm mingw-w64-x86_64-gcc"
+          C:\\tools\\msys64\\usr\\bin\\bash.exe -c "pacman -S --noconfirm mingw-w64-x86_64-gcc mingw-w64-x86_64-make"
           # Update transitive dependencies if needed
           C:\\tools\\msys64\\usr\\bin\\bash.exe -c "pacman -Syu --noconfirm"
         fi
