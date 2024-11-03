@@ -1,15 +1,15 @@
 # setup-jemalloc GitHub Action
 ![badge](https://github.com/kaeawc/setup-jemalloc/actions/workflows/commit.yml/badge.svg)
 
-This action downloads, installs, and caches jemalloc on any platform runner. Subsequent workflow steps should automatically benefit from jemalloc replacing the default malloc, which can free up native memory left otherwise unusable by fragmentation.
+This action downloads, installs, and caches jemalloc. Subsequent workflow steps should automatically benefit from jemalloc replacing the default malloc, which can free up native memory left otherwise unusable by fragmentation.
 
 ## Supported Platforms
 
 - `linux`
-- `macos`
 
 ## In Development Platforms
 
+- `macos`
 - `windows` 
 
 ## Example
