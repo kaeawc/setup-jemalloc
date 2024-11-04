@@ -15,11 +15,17 @@ This action downloads, installs, and caches jemalloc. Subsequent workflow steps 
 ## Example
 ```yaml
 jobs:
-  hash_string:
+  build_your_app:
+
+    # Add typical environment setup steps for node/java/python etc before jemalloc
+    
     - name: Set up jemalloc
-      uses: kaeawc/setup-jemalloc@v0.0.1
+      uses: kaeawc/setup-jemalloc@v0.0.2
+
+    # Any processes run (bash, java, golang, python, etc) will benefit from using jemalloc automatically.
     - name: Build Application
       run: make
+    
 ```
 
 ## Inputs
