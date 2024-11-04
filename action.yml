@@ -106,6 +106,7 @@ runs:
           mkdir -p /tmp
           cp /usr/local/lib/libjemalloc.so.2 /tmp/
         elif [ "${{ runner.os }}" == "macOS" ]; then
+          echo 'DYLD_FORCE_FLAT_NAMESPACE=1' >> $GITHUB_ENV
           echo 'DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.2.dylib' >> $GITHUB_ENV
           mkdir -p /tmp
           cp /usr/local/lib/libjemalloc.2.dylib /tmp/

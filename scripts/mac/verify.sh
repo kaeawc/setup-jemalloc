@@ -11,8 +11,23 @@ if [ -z "$PID" ]; then
   exit 1
 fi
 
+echo "DYLD_INSERT_LIBRARIES is set to $DYLD_INSERT_LIBRARIES"
+
 if [ -z "$DYLD_INSERT_LIBRARIES" ]; then
-  echo "DYLD_INSERT_LIBRARIES is not set, required on Linux platform to preload jemalloc"
+  echo "DYLD_INSERT_LIBRARIES is not set, required on Mac platform to preload jemalloc"
+  kill -9 "$PID"
+  exit 1
+fi
+
+if [ -z "$DYLD_FORCE_FLAT_NAMESPACE" ]; then
+  echo "DYLD_FORCE_FLAT_NAMESPACE is not set, required on Mac platform to preload jemalloc"
+  kill -9 "$PID"
+  exit 1
+fi
+
+if [ "$DYLD_FORCE_FLAT_NAMESPACE" -eq "1" ]; then
+  echo "DYLD_FORCE_FLAT_NAMESPACE is not set, required on Mac platform to preload jemalloc"
+  kill -9 "$PID"
   exit 1
 fi
 
@@ -33,6 +48,7 @@ JEMALLOC_REF=$(lsof -p "$PID" | grep "libjemalloc.2.dylib")
 
 if [ -z "$JEMALLOC_REF" ]; then
   echo "No jemalloc references found for process '$PROCESS_NAME' (PID: $PID)."
+  kill -9 "$PID"
   exit 1
 else
   echo "Process '$PROCESS_NAME' (PID: $PID) is using jemalloc."

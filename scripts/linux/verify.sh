@@ -13,6 +13,7 @@ fi
 
 if [ -z "$LD_PRELOAD" ]; then
   echo "LD_PRELOAD is not set, required on Linux platform to preload jemalloc"
+  kill -9 "$PID"
   exit 1
 fi
 
@@ -34,6 +35,7 @@ JEMALLOC_REF=$(lsof -p "$PID" | grep "libjemalloc.so.2")
 
 if [ -z "$JEMALLOC_REF" ]; then
   echo "No jemalloc references found for process '$PROCESS_NAME' (PID: $PID)."
+  kill -9 "$PID"
   exit 1
 else
   echo "Process '$PROCESS_NAME' (PID: $PID) is using jemalloc."
