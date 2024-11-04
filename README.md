@@ -26,3 +26,8 @@ jobs:
 | Argument | Description | Default | Required |
 |----------|-------------|---------|---------|
 | jemalloc-version    | The version of jemalloc to be used | 5.3.0 | yes |
+
+## Verification
+
+You can use the scripts located in `./scripts/$platform/verify.sh` for the relevant platform
+to verify a given PID is running with jemalloc preloaded.
