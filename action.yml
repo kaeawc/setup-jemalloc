@@ -90,7 +90,7 @@ runs:
           make
           sudo make install
         elif [ "${{ runner.os }}" == "macOS" ]; then
-          ./configure CFLAGS="-target arm64e-apple-macos" LDFLAGS="-target arm64e-apple-macos"
+          ./configure --host=arm-apple-darwin CFLAGS="-arch arm64 -arch x86_64" LDFLAGS="-arch arm64 -arch x86_64"
           make
           sudo make install
         elif [ "${{ runner.os }}" == "Windows" ]; then
