@@ -90,9 +90,11 @@ runs:
           make
           sudo make install
         elif [ "${{ runner.os }}" == "macOS" ]; then
-          ./configure --host=arm-apple-darwin CFLAGS="-arch arm64 -arch x86_64" LDFLAGS="-arch arm64 -arch x86_64"
+          ./configure --host=arm-apple-darwin CFLAGS="-arch arm64 -arch arm64e -arch x86_64" LDFLAGS="-arch arm64 -arch arm64e -arch x86_64"
           make
           sudo make install
+          echo ""
+          lipo -info /usr/local/lib/libjemalloc.2.dylib
         elif [ "${{ runner.os }}" == "Windows" ]; then
           export CC=cl; source ../before_install.sh
           ./configure
