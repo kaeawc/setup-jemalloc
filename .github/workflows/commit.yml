@@ -24,6 +24,8 @@ jobs:
         run: |
           # Load the PID of the background process
           export PID=$(cat background_process.pid)
+          echo "PID of background process is $PID"
+          ps aux
           ./scripts/mac/verify.sh "$PID"
 
       - name: Cleanup Background Process
@@ -55,6 +57,7 @@ jobs:
         run: |
           # Load the PID of the background process
           export PID=$(cat background_process.pid)
+          echo "PID of background process is $PID"
           ./scripts/linux/verify.sh "$PID"
 
       - name: Cleanup Background Process
