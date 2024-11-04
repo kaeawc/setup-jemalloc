@@ -18,8 +18,8 @@ jobs:
           nohup bash -c 'while true; do sleep 10; done' &
           echo $! > background_process_without_jemalloc.pid
 
-      - name: Run jemalloc action
-        uses: ./
+#      - name: Run jemalloc action
+#        uses: ./
 
       - name: Start Background Process with jemalloc
         run: |
