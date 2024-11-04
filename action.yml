@@ -117,8 +117,6 @@ runs:
           cp /usr/local/lib/libjemalloc.so.2 /tmp/
         elif [ "${{ runner.os }}" == "macOS" ]; then
           find jemalloc-${{ inputs.jemalloc-version }}/lib
-#          echo 'DYLD_FORCE_FLAT_NAMESPACE=1' >> $GITHUB_ENV
-#          echo 'DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.2.dylib' >> $GITHUB_ENV
           mkdir -p /tmp
           cp /usr/local/lib/libjemalloc.2.dylib /tmp/
         elif [ "${{ runner.os }}" == "Windows" ]; then
@@ -126,6 +124,8 @@ runs:
           echo "$RUNNER_TEMP/jemalloc/jemalloc.dll" >> $GITHUB_PATH
         fi
 
+#          echo 'DYLD_FORCE_FLAT_NAMESPACE=1' >> $GITHUB_ENV
+#          echo 'DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.2.dylib' >> $GITHUB_ENV
 #    - name: "Save jemalloc"
 #      uses: actions/cache/save@v4
 #      if: steps.cache-jemalloc.outputs.cache-hit != 'true'
