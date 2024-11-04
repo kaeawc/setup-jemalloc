@@ -12,21 +12,28 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Start Background Process without jemalloc
+        run: |
+          nohup bash -c 'while true; do sleep 10; done' &
+          echo $! > background_process_without_jemalloc.pid
+
       - name: Run jemalloc action
         uses: ./
 
-      - name: Start Background Process with Infinite Loop
+      - name: Start Background Process with jemalloc
         run: |
           nohup bash -c 'while true; do sleep 10; done' &
           echo $! > background_process.pid
 
       - name: Check jemalloc Usage
         run: |
-          # Load the PID of the background process
-          export PID=$(cat background_process.pid)
-          echo "PID of background process is $PID"
-          ps aux
-          ./scripts/mac/verify.sh "$PID"
+          # Load the PIDs of the background processes
+          export PID_WITHOUT=$(cat background_process_without_jemalloc.pid)
+          echo "PID_WITHOUT of background process without jemalloc is $PID_WITHOUT"
+          export PID_WITH=$(cat background_process.pid)
+          echo "PID_WITH of background process with jemalloc is $PID_WITH"
+          ./scripts/mac/verify.sh "$PID_WITH"
 
       - name: Cleanup Background Process
         run: |
