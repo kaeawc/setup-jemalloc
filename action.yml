@@ -91,8 +91,9 @@ runs:
           make
           sudo make install
         elif [ "${{ runner.os }}" == "macOS" ]; then
-          export PAGE_SIZE=$(sysctl -a | awk '/hw.pagesize/ {print $2/1024 "KB"}')
-          ./configure --with-lg-page=$PAGE_SIZE --with-lg-hugepage=$PAGE_SIZE --host=arm-apple-darwin CFLAGS="-target arm64e-apple-macos" LDFLAGS="-target arm64e-apple-macos"
+          # TODO: grab this properly
+          # export PAGE_SIZE=$(sysctl -a | awk '/hw.pagesize/ {print $2/1024 "KB"}')
+          ./configure --with-lg-page=16KB --with-lg-hugepage=16KB --host=arm-apple-darwin CFLAGS="-target arm64e-apple-macos" LDFLAGS="-target arm64e-apple-macos"
           make
           sudo make install
           echo ""
