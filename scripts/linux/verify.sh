@@ -19,9 +19,10 @@ JEMALLOC_REF=$(lsof -p "$PID" | grep jemalloc)
 
 if [ -z "$JEMALLOC_REF" ]; then
   echo "No jemalloc references found for process '$PROCESS_NAME' (PID: $PID)."
+  kill -9 "$PID"
   exit 1
 else
-  echo "Process '$PROCESS_NAME' (PID: $PID) is using jemalloc."
+  echo "Process '$PROCESS_NAME' (PID: $PID) running with jemalloc."
   echo "jemalloc reference found at:"
   echo "$JEMALLOC_REF"
 fi

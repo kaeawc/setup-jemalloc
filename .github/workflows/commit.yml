@@ -24,7 +24,7 @@ jobs:
         run: |
           # Load the PID of the background process
           export PID=$(cat background_process.pid)
-          ./scripts/linux/verify_using_jemalloc.sh "$PID"
+          ./scripts/mac/verify.sh "$PID"
 
       - name: Cleanup Background Process
         run: |
@@ -56,7 +56,7 @@ jobs:
         run: |
           # Load the PID of the background process
           export PID=$(cat background_process.pid)
-          ./scripts/linux/verify_using_jemalloc.sh "$PID"
+          ./scripts/linux/verify.sh "$PID"
 
       - name: Cleanup Background Process
         run: |
