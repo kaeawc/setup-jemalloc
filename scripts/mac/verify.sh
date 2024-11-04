@@ -11,6 +11,13 @@ if [ -z "$PID" ]; then
   exit 1
 fi
 
+if [ -z "$DYLD_INSERT_LIBRARIES" ]; then
+  echo "DYLD_INSERT_LIBRARIES is not set, required on Linux platform to preload jemalloc"
+  exit 1
+fi
+
+echo "DYLD_INSERT_LIBRARIES is set to $DYLD_INSERT_LIBRARIES"
+
 # Get the process name
 PROCESS_NAME=$(ps -p "$PID" -o comm=)
 

@@ -11,6 +11,13 @@ if [ -z "$PID" ]; then
   exit 1
 fi
 
+if [ -z "$LD_PRELOAD" ]; then
+  echo "LD_PRELOAD is not set, required on Linux platform to preload jemalloc"
+  exit 1
+fi
+
+echo "LD_PRELOAD is set to $LD_PRELOAD"
+
 # Get the process name
 PROCESS_NAME=$(ps -p "$PID" -o comm=)
 
