@@ -26,3 +26,23 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run jemalloc action
         uses: ./
+
+      - name: Start Background Bash Script
+        run: |
+          # Start a background Bash script with an infinite loop
+          nohup bash -c 'while true; do sleep 10; done' &
+          echo $! > background_process.pid  # Store PID for later
+
+      - name: Check jemalloc Usage
+        run: |
+          # Load the PID of the background process
+          export PID=$(cat background_process.pid)
+          ./scripts/linux/verify_using_jemalloc.sh "$PID"
+
+      - name: Cleanup Background Process
+        run: |
+          # Kill the background process if it is still running
+          if [ -f background_process.pid ]; then
+            kill $(cat background_process.pid) || true
+            rm background_process.pid
+          fi
