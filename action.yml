@@ -86,11 +86,13 @@ runs:
       run: |
         cd jemalloc-${{ inputs.jemalloc-version }}
         if [ "${{ runner.os }}" == "Linux" ]; then
+          # --with-huge-page-size=$(awk '/Hugepagesize:/ {print $2/1024 "MB"}' /proc/meminfo)
           ./configure
           make
           sudo make install
         elif [ "${{ runner.os }}" == "macOS" ]; then
-          ./configure --host=arm-apple-darwin CFLAGS="-target arm64e-apple-macos" LDFLAGS="-target arm64e-apple-macos"
+          export PAGE_SIZE=$(sysctl -a | awk '/hw.pagesize/ {print $2/1024 "KB"}')
+          ./configure --with-lg-page=$PAGE_SIZE --with-lg-hugepage=$PAGE_SIZE --host=arm-apple-darwin CFLAGS="-target arm64e-apple-macos" LDFLAGS="-target arm64e-apple-macos"
           make
           sudo make install
           echo ""
