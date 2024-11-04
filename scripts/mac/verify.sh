@@ -15,6 +15,8 @@ fi
 PROCESS_NAME=$(ps -p "$PID" -o comm=)
 
 # Check for jemalloc references in the open files of the process
+echo "$(lsof -p "$PID")"
+echo ""
 JEMALLOC_REF=$(lsof -p "$PID" | grep jemalloc)
 
 if [ -z "$JEMALLOC_REF" ]; then
