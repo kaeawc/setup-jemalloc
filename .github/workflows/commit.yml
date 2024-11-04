@@ -14,11 +14,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run jemalloc action
         uses: ./
-      - name: Start Background Bash Script
+      - name: Start Background Process with Infinite Loop
         run: |
-          # Start a background Bash script with an infinite loop
-          nohup bash -c 'while true; do sleep 10; done' &
-          echo $! > background_process.pid  # Store PID for later
+          nohup bash -c 'echo "public class Main { public static void main(String[] args) { while (true) { try { Thread.sleep(10000); } catch (InterruptedException e) {} } } }" > Main.java && javac Main.java && java Main' &
+          echo $! > background_process.pid
 
       - name: Check jemalloc Usage
         run: |
@@ -46,11 +45,10 @@ jobs:
       - name: Run jemalloc action
         uses: ./
 
-      - name: Start Background Bash Script
+      - name: Start Background Process with Infinite Loop
         run: |
-          # Start a background Bash script with an infinite loop
-          nohup bash -c 'while true; do sleep 10; done' &
-          echo $! > background_process.pid  # Store PID for later
+          nohup bash -c 'echo "public class Main { public static void main(String[] args) { while (true) { try { Thread.sleep(10000); } catch (InterruptedException e) {} } } }" > Main.java && javac Main.java && java Main' &
+          echo $! > background_process.pid
 
       - name: Check jemalloc Usage
         run: |
