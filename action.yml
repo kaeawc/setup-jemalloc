@@ -21,27 +21,27 @@ runs:
           exit 1
         fi
 
-#    - name: "Restore jemalloc"
-#      id: cache-jemalloc
-#      uses: actions/cache/restore@v4
-#      with:
-#        path: ${{ runner.os == 'Windows' && '/tmp/libjemalloc.dll' || runner.os == 'Linux' && '/tmp/libjemalloc.so.2' || '/tmp/libjemalloc.2.dylib' }}
-#        key: v5-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
-#
-#    - name: "Relocate jemalloc to expected directory"
-#      if: steps.cache-jemalloc.outputs.cache-hit == 'true'
-#      shell: bash
-#      run: |
-#        if [ "${{ runner.os }}" == "Linux" ]; then
-#          mkdir -p /usr/local/lib
-#          sudo cp /tmp/libjemalloc.so.2 /usr/local/lib/
-#        elif [ "${{ runner.os }}" == "macOS" ]; then
-#          sudo mkdir -p /usr/local/lib
-#          sudo cp /tmp/libjemalloc.2.dylib /usr/local/lib/
-#        elif [ "${{ runner.os }}" == "Windows" ]; then
-#          mkdir -p "$RUNNER_TEMP/jemalloc"
-#          cp /tmp/libjemalloc.dll "$RUNNER_TEMP/jemalloc/jemalloc.dll"
-#        fi
+    - name: "Restore jemalloc"
+      id: cache-jemalloc
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ runner.os == 'Windows' && '/tmp/libjemalloc.dll' || runner.os == 'Linux' && '/tmp/libjemalloc.so.2' || '/tmp/libjemalloc.2.dylib' }}
+        key: v6-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
+
+    - name: "Relocate jemalloc to expected directory"
+      if: steps.cache-jemalloc.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        if [ "${{ runner.os }}" == "Linux" ]; then
+          mkdir -p /usr/local/lib
+          sudo cp /tmp/libjemalloc.so.2 /usr/local/lib/
+        elif [ "${{ runner.os }}" == "macOS" ]; then
+          sudo mkdir -p /usr/local/lib
+          sudo cp /tmp/libjemalloc.2.dylib /usr/local/lib/
+        elif [ "${{ runner.os }}" == "Windows" ]; then
+          mkdir -p "$RUNNER_TEMP/jemalloc"
+          cp /tmp/libjemalloc.dll "$RUNNER_TEMP/jemalloc/jemalloc.dll"
+        fi
 
     - name: "Download jemalloc"
       if: steps.cache-jemalloc.outputs.cache-hit != 'true'
@@ -126,12 +126,12 @@ runs:
           echo "$RUNNER_TEMP/jemalloc/jemalloc.dll" >> $GITHUB_PATH
         fi
 
-#    - name: "Save jemalloc"
-#      uses: actions/cache/save@v4
-#      if: steps.cache-jemalloc.outputs.cache-hit != 'true'
-#      with:
-#        path: ${{ runner.os == 'Windows' && '/tmp/libjemalloc.dll' || runner.os == 'Linux' && '/tmp/libjemalloc.so.2' || '/tmp/libjemalloc.2.dylib' }}
-#        key: v5-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
+    - name: "Save jemalloc"
+      uses: actions/cache/save@v4
+      if: steps.cache-jemalloc.outputs.cache-hit != 'true'
+      with:
+        path: ${{ runner.os == 'Windows' && '/tmp/libjemalloc.dll' || runner.os == 'Linux' && '/tmp/libjemalloc.so.2' || '/tmp/libjemalloc.2.dylib' }}
+        key: v6-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
 
 branding:
   icon: "cpu"
