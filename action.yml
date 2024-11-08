@@ -22,7 +22,7 @@ runs:
         key: v7-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
 
     - name: "Relocate jemalloc to expected directory"
-      if: runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit == 'true'
+      if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit == 'true' }}
       shell: bash
       run: |
         if [ "${{ runner.os }}" == "Linux" ]; then
@@ -37,7 +37,7 @@ runs:
         fi
 
     - name: "Download jemalloc"
-      if: runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true'
+      if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}
       shell: bash
       run: |
         if [ "${{ runner.os }}" == "Linux" ]; then
@@ -57,7 +57,7 @@ runs:
         fi
 
     - name: "Pacman Tool Setup"
-      if: runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true'
+      if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}
       shell: bash
       run: |
         if [ "${{ runner.os }}" == "Windows" ]; then
@@ -70,7 +70,7 @@ runs:
         fi
 
     - name: "Configure and install jemalloc"
-      if: runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true'
+      if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}
       shell: bash
       run: |
         if [ "${{ runner.os }}" == "Linux" ]; then
@@ -111,7 +111,7 @@ runs:
 
     - name: "Save jemalloc"
       uses: actions/cache/save@v4
-      if: runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' &&
+      if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' && }}
       with:
         path: ${{ runner.os == 'Windows' && '/tmp/libjemalloc.dll' || runner.os == 'Linux' && '/tmp/libjemalloc.so.2' || '/tmp/libjemalloc.2.dylib' }}
         key: v7-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
