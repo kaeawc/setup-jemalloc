@@ -11,7 +11,13 @@ if [ -z "$PID" ]; then
   exit 1
 fi
 
-echo "DYLD_INSERT_LIBRARIES is set to $DYLD_INSERT_LIBRARIES"
+export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.2.dylib
+export DYLD_FORCE_FLAT_NAMESPACE=1
+export MallocNanoZone=0
+
+
+echo "DYLD_INSERT_LIBRARIES: $DYLD_INSERT_LIBRARIES"
+echo "DYLD_FORCE_FLAT_NAMESPACE: $DYLD_FORCE_FLAT_NAMESPACE"
 
 if [ -z "$DYLD_INSERT_LIBRARIES" ]; then
   echo "DYLD_INSERT_LIBRARIES is not set, required on Mac platform to preload jemalloc"
@@ -25,8 +31,8 @@ if [ -z "$DYLD_FORCE_FLAT_NAMESPACE" ]; then
   exit 1
 fi
 
-if [ "$DYLD_FORCE_FLAT_NAMESPACE" -eq "1" ]; then
-  echo "DYLD_FORCE_FLAT_NAMESPACE is not set, required on Mac platform to preload jemalloc"
+if [ "$DYLD_FORCE_FLAT_NAMESPACE" != "1" ]; then
+  echo "DYLD_FORCE_FLAT_NAMESPACE is not set to 1, required on Mac platform to preload jemalloc"
   kill -9 "$PID"
   exit 1
 fi
