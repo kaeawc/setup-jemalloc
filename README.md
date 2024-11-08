@@ -7,9 +7,9 @@ This action downloads, installs, and caches jemalloc. Subsequent workflow steps 
 
 - `linux`
 
-## In Development Platforms
+## Unsupported Platforms
 
-- `macos`
+- `macos`: Requires jemalloc to be built with arm64e target architecture for M1/M2/M3.
 - `windows` 
 
 ## Example
