@@ -80,8 +80,8 @@ runs:
       if: steps.cache-jemalloc.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        cd jemalloc-${{ inputs.jemalloc-version }}
         if [ "${{ runner.os }}" == "Linux" ]; then
+          cd jemalloc-${{ inputs.jemalloc-version }}
           # --with-huge-page-size=$(awk '/Hugepagesize:/ {print $2/1024 "MB"}' /proc/meminfo)
           ./configure
           make
@@ -89,6 +89,7 @@ runs:
         elif [ "${{ runner.os }}" == "macOS" ]; then
           echo "brew did the setup already"
         elif [ "${{ runner.os }}" == "Windows" ]; then
+          cd jemalloc-${{ inputs.jemalloc-version }}
           export CC=cl; source ../before_install.sh
           ./configure
           autoconf
