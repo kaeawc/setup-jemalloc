@@ -23,35 +23,35 @@ jobs:
           echo $! > background_process_without_jemalloc.pid
           cat background_process_without_jemalloc.pid
 
-#      - name: Run jemalloc action
-#        uses: ./
+      - name: Run jemalloc action
+        uses: ./
 
-#      - name: Start Background Process with jemalloc
-#        run: |
-#          nohup bash -c 'sleep 10' &
-#          echo $! > background_process.pid
-#          cat background_process.pid
-#
-#      - name: Check jemalloc Usage
-#        run: |
-#          # Load the PIDs of the background processes
-#          export PID_WITHOUT=$(cat background_process_without_jemalloc.pid)
-#          echo "PID_WITHOUT of background process without jemalloc is $PID_WITHOUT"
-#          export PID_WITH=$(cat background_process.pid)
-#          echo "PID_WITH of background process with jemalloc is $PID_WITH"
-#          ./scripts/mac/verify.sh "$PID_WITH"
-#
-#      - name: Cleanup Background Process
-#        run: |
-#          # Kill the background process if it is still running
-#          if [ -f background_process.pid ]; then
-#            kill $(cat background_process.pid) || true
-#            rm background_process.pid
-#          fi
-#          if [ -f background_process_without_jemalloc.pid ]; then
-#            kill $(cat background_process_without_jemalloc.pid) || true
-#            rm background_process_without_jemalloc.pid
-#          fi
+      - name: Start Background Process with jemalloc
+        run: |
+          nohup bash -c 'sleep 10' &
+          echo $! > background_process.pid
+          cat background_process.pid
+
+      - name: Check jemalloc Usage
+        run: |
+          # Load the PIDs of the background processes
+          export PID_WITHOUT=$(cat background_process_without_jemalloc.pid)
+          echo "PID_WITHOUT of background process without jemalloc is $PID_WITHOUT"
+          export PID_WITH=$(cat background_process.pid)
+          echo "PID_WITH of background process with jemalloc is $PID_WITH"
+          ./scripts/mac/verify.sh "$PID_WITH"
+
+      - name: Cleanup Background Process
+        run: |
+          # Kill the background process if it is still running
+          if [ -f background_process.pid ]; then
+            kill $(cat background_process.pid) || true
+            rm background_process.pid
+          fi
+          if [ -f background_process_without_jemalloc.pid ]; then
+            kill $(cat background_process_without_jemalloc.pid) || true
+            rm background_process_without_jemalloc.pid
+          fi
   # windows:
   #   runs-on: windows-latest
   #   steps:
