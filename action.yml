@@ -47,19 +47,15 @@ runs:
       if: steps.cache-jemalloc.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        curl -Ls https://github.com/jemalloc/jemalloc/releases/download/${{ inputs.jemalloc-version }}/jemalloc-${{ inputs.jemalloc-version }}.tar.bz2 -o jemalloc-${{ inputs.jemalloc-version }}.tar.bz2
-
-    - name: "Unzip jemalloc"
-      if: steps.cache-jemalloc.outputs.cache-hit != 'true'
-      shell: bash
-      run: tar xvf jemalloc-${{ inputs.jemalloc-version }}.tar.bz2
-
-    - name: "Compilation Tool Setup"
-      if: steps.cache-jemalloc.outputs.cache-hit != 'true'
-      shell: bash
-      run: |
-        cd jemalloc-${{ inputs.jemalloc-version }}
-        if [ "${{ runner.os }}" == "Windows" ]; then
+        if [ "${{ runner.os }}" == "Linux" ]; then
+          curl -Ls https://github.com/jemalloc/jemalloc/releases/download/${{ inputs.jemalloc-version }}/jemalloc-${{ inputs.jemalloc-version }}.tar.bz2 -o jemalloc-${{ inputs.jemalloc-version }}.tar.bz2
+          tar xvf jemalloc-${{ inputs.jemalloc-version }}.tar.bz2
+        elif [ "${{ runner.os }}" == "macOS" ]; then
+          brew install jemalloc
+          lipo -info /usr/local/lib/libjemalloc.2.dylib
+        elif [ "${{ runner.os }}" == "Windows" ]; then
+          curl -Ls https://github.com/jemalloc/jemalloc/releases/download/${{ inputs.jemalloc-version }}/jemalloc-${{ inputs.jemalloc-version }}.tar.bz2 -o jemalloc-${{ inputs.jemalloc-version }}.tar.bz2
+          tar xvf jemalloc-${{ inputs.jemalloc-version }}.tar.bz2
           # Install MSYS2 for compatible build tools
           choco install msys2 -y
           # Add MSYS2 binaries to PATH
@@ -91,14 +87,7 @@ runs:
           make
           sudo make install
         elif [ "${{ runner.os }}" == "macOS" ]; then
-          # TODO: grab this properly
-          # export PAGE_SIZE=$(sysctl -a | awk '/hw.pagesize/ {print $2/1024 "KB"}')
-          # Macs generally run with 16kb page size, 2 ^ 14 = 16,384 bytes = 16 kb
-          ./configure --with-lg-page=14 --with-lg-hugepage=14 --host=arm-apple-darwin CFLAGS="-target arm64e-apple-macos" LDFLAGS="-target arm64e-apple-macos"
-          make
-          sudo make install
-          echo ""
-          lipo -info /usr/local/lib/libjemalloc.2.dylib
+          echo "brew did the setup already"
         elif [ "${{ runner.os }}" == "Windows" ]; then
           export CC=cl; source ../before_install.sh
           ./configure
