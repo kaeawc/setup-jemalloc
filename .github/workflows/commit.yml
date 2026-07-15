@@ -8,6 +8,55 @@ on:
       - main
 
 jobs:
+  unit_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ShellCheck relocate scripts and tests
+        run: |
+          shellcheck scripts/linux/relocate.sh scripts/mac/relocate.sh tests/relocate_test.sh
+
+      - name: Run relocate unit tests
+        run: |
+          bash tests/relocate_test.sh
+
+  linux_double_invocation:
+    # Regression guard for issue #5: invoking the action twice in one job used
+    # to SIGSEGV (exit 139) at the relocate step on the second invocation,
+    # because LD_PRELOAD pointed at the library being copied in place. Both
+    # invocations and their workloads must now succeed.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run jemalloc action (1st invocation - installs + populates cache)
+        uses: ./
+
+      - name: Workload after 1st invocation
+        run: |
+          echo "LD_PRELOAD=$LD_PRELOAD"
+          nohup bash -c 'while true; do sleep 10; done' > nohup.out 2> nohup.err < /dev/null &
+          echo $! > pid1
+          ./scripts/linux/verify.sh "$(cat pid1)"
+
+      - name: Run jemalloc action (2nd invocation - cache hit -> relocate step)
+        uses: ./
+
+      - name: Workload after 2nd invocation (never reached before the fix)
+        run: |
+          echo "LD_PRELOAD=$LD_PRELOAD"
+          nohup bash -c 'while true; do sleep 10; done' > nohup.out 2> nohup.err < /dev/null &
+          echo $! > pid2
+          ./scripts/linux/verify.sh "$(cat pid2)"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          for f in pid1 pid2; do
+            [ -f "$f" ] && { kill "$(cat "$f")" 2>/dev/null || true; rm -f "$f"; }
+          done
+
 #  mac:
 #    runs-on: macos-latest
 #    steps:
