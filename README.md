@@ -28,6 +28,12 @@ jobs:
     
 ```
 
+## Re-invoking within a job
+
+The action is safe to invoke more than once in the same job. Installs are atomic
+and idempotent, so a later invocation will not disturb the `jemalloc` library
+already preloaded into running processes.
+
 ## Inputs
 | Argument | Description | Default | Required |
 |----------|-------------|---------|---------|

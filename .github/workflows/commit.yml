@@ -43,6 +43,18 @@ jobs:
       - name: Run jemalloc action (2nd invocation - cache hit -> relocate step)
         uses: ./
 
+      - name: Assert 1st-invocation process survived the relocate
+        run: |
+          # pid1 has libjemalloc.so.2 mapped via LD_PRELOAD. The old bug
+          # truncated that library in place during the 2nd invocation's
+          # relocate step, taking the process (and the copy) down with it.
+          # It must still be alive and still using jemalloc afterwards.
+          if ! kill -0 "$(cat pid1)" 2>/dev/null; then
+            echo "::error::pid1 (jemalloc-preloaded) died across the 2nd invocation - regression of #5"
+            exit 1
+          fi
+          ./scripts/linux/verify.sh "$(cat pid1)"
+
       - name: Workload after 2nd invocation (never reached before the fix)
         run: |
           echo "LD_PRELOAD=$LD_PRELOAD"

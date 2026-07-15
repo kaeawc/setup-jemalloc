@@ -7,7 +7,10 @@
 # machine and on a bare CI runner. They exercise the relocate logic without
 # sudo by exporting SUDO="" and operating inside a scratch directory.
 #
-# Each test maps to an evaluation criterion in PLAN.md (EC1..EC5).
+# Each test is labelled with an evaluation criterion (EC1..EC5):
+#   EC1 fresh install, EC2 idempotent skip (inode unchanged), EC3 atomic
+#   replace preserves a live open fd (the SIGSEGV regression guard),
+#   EC4 content updated, EC5 missing source fails cleanly.
 
 set -uo pipefail
 
