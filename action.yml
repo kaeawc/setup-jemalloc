@@ -25,12 +25,13 @@ runs:
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit == 'true' }}
       shell: bash
       run: |
+        # Atomic, idempotent install so a second in-job invocation cannot
+        # truncate an LD_PRELOAD'd / DYLD_INSERT_LIBRARIES'd library in place
+        # and crash the copy with SIGSEGV (issue #5).
         if [ "${{ runner.os }}" == "Linux" ]; then
-          mkdir -p /usr/local/lib
-          sudo cp /tmp/libjemalloc.so.2 /usr/local/lib/
+          bash "${{ github.action_path }}/scripts/linux/relocate.sh" /tmp/libjemalloc.so.2 /usr/local/lib/libjemalloc.so.2
         elif [ "${{ runner.os }}" == "macOS" ]; then
-          sudo mkdir -p /opt/homebrew/Cellar/jemalloc/5.3.0/lib
-          sudo cp /tmp/libjemalloc.2.dylib /opt/homebrew/Cellar/jemalloc/5.3.0/lib/
+          bash "${{ github.action_path }}/scripts/mac/relocate.sh" /tmp/libjemalloc.2.dylib /opt/homebrew/Cellar/jemalloc/5.3.0/lib/libjemalloc.2.dylib
         elif [ "${{ runner.os }}" == "Windows" ]; then
           mkdir -p "$RUNNER_TEMP/jemalloc"
           cp /tmp/libjemalloc.dll "$RUNNER_TEMP/jemalloc/jemalloc.dll"

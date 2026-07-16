@@ -20,13 +20,19 @@ jobs:
     # Add typical environment setup steps for node/java/python etc before jemalloc
     
     - name: Set up jemalloc
-      uses: kaeawc/setup-jemalloc@v0.0.2
+      uses: kaeawc/setup-jemalloc@v0.0.3
 
     # Any processes run (bash, java, golang, python, etc) will benefit from using jemalloc automatically.
     - name: Build Application
       run: make
     
 ```
+
+## Re-invoking within a job
+
+The action is safe to invoke more than once in the same job. Installs are atomic
+and idempotent, so a later invocation will not disturb the `jemalloc` library
+already preloaded into running processes.
 
 ## Inputs
 | Argument | Description | Default | Required |
