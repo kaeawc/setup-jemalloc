@@ -36,6 +36,15 @@ new_workdir() {
   mktemp -d "${TMPDIR:-/tmp}/relocate_test.XXXXXX"
 }
 
+# Portable inode number for a file. GNU `stat -c '%i'` and BSD `stat -f '%i'`
+# use incompatible flags. Try GNU first: on BSD/macOS `stat -c` is an unknown
+# option and fails cleanly, so we fall back to `-f`. (The reverse order is
+# unsafe — GNU `stat -f` *succeeds* in filesystem mode and prints free-space
+# stats that drift between calls, which made the EC2 inode check flaky.)
+inode_of() {
+  stat -c '%i' "$1" 2>/dev/null || stat -f '%i' "$1"
+}
+
 # ---------------------------------------------------------------------------
 # EC1 — Fresh install into a missing destination dir
 # ---------------------------------------------------------------------------
@@ -69,10 +78,10 @@ test_idempotent_skip() {
   mkdir -p "$wd/lib"
   printf 'SAME' > "$src"
   cp "$src" "$dest"
-  ino_before="$(stat -f '%i' "$dest" 2>/dev/null || stat -c '%i' "$dest")"
+  ino_before="$(inode_of "$dest")"
 
   ( . "$LINUX_RELOCATE"; relocate_jemalloc "$src" "$dest" ) >/dev/null 2>&1
-  ino_after="$(stat -f '%i' "$dest" 2>/dev/null || stat -c '%i' "$dest")"
+  ino_after="$(inode_of "$dest")"
 
   assert_eq "EC2 idempotent skip leaves inode unchanged" "$ino_before" "$ino_after"
   rm -rf "$wd"
