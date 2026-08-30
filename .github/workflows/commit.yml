@@ -13,13 +13,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: ShellCheck relocate scripts and tests
+      - name: ShellCheck all shell scripts and tests
         run: |
-          shellcheck scripts/linux/relocate.sh scripts/mac/relocate.sh tests/relocate_test.sh
+          shellcheck \
+            scripts/linux/relocate.sh scripts/mac/relocate.sh \
+            scripts/linux/checksums.sh \
+            scripts/linux/verify.sh scripts/mac/verify.sh \
+            tests/relocate_test.sh tests/checksum_test.sh
 
-      - name: Run relocate unit tests
+      - name: Run unit tests
         run: |
           bash tests/relocate_test.sh
+          bash tests/checksum_test.sh
 
   linux_double_invocation:
     # Regression guard for issue #5: invoking the action twice in one job used

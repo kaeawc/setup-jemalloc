@@ -1,63 +1,42 @@
 #!/bin/bash
+#
+# Verify that a given PID has jemalloc inserted (macOS). Prints diagnostics and
+# exits non-zero if jemalloc is not inserted. Read-only verifier — it does not
+# signal the target. macOS is currently unsupported (see README); this is kept
+# in parity with the Linux verifier.
 
-if [ -z "$1" ]; then
-  echo "Usage: $0 <process_name>"
+if [ -z "${1:-}" ]; then
+  echo "Usage: $0 <pid>"
   exit 1
 fi
+PID="$1"
 
-export PID="$1"
-if [ -z "$PID" ]; then
-  echo "Process '$1' not found."
+if [ -z "${DYLD_INSERT_LIBRARIES:-}" ]; then
+  echo "DYLD_INSERT_LIBRARIES is not set — required on macOS to insert jemalloc" >&2
   exit 1
 fi
-
-export DYLD_INSERT_LIBRARIES=/usr/local/lib/libjemalloc.2.dylib
-export DYLD_FORCE_FLAT_NAMESPACE=1
-export MallocNanoZone=0
-
-
-echo "DYLD_INSERT_LIBRARIES: $DYLD_INSERT_LIBRARIES"
-echo "DYLD_FORCE_FLAT_NAMESPACE: $DYLD_FORCE_FLAT_NAMESPACE"
-
-if [ -z "$DYLD_INSERT_LIBRARIES" ]; then
-  echo "DYLD_INSERT_LIBRARIES is not set, required on Mac platform to preload jemalloc"
-  kill -9 "$PID"
-  exit 1
-fi
-
-if [ -z "$DYLD_FORCE_FLAT_NAMESPACE" ]; then
-  echo "DYLD_FORCE_FLAT_NAMESPACE is not set, required on Mac platform to preload jemalloc"
-  kill -9 "$PID"
-  exit 1
-fi
-
-if [ "$DYLD_FORCE_FLAT_NAMESPACE" != "1" ]; then
-  echo "DYLD_FORCE_FLAT_NAMESPACE is not set to 1, required on Mac platform to preload jemalloc"
-  kill -9 "$PID"
-  exit 1
-fi
-
 echo "DYLD_INSERT_LIBRARIES is set to $DYLD_INSERT_LIBRARIES"
 
-# Get the process name
+if [ "${DYLD_FORCE_FLAT_NAMESPACE:-}" != "1" ]; then
+  echo "DYLD_FORCE_FLAT_NAMESPACE must be set to 1 on macOS to insert jemalloc" >&2
+  exit 1
+fi
+echo "DYLD_FORCE_FLAT_NAMESPACE is set to $DYLD_FORCE_FLAT_NAMESPACE"
+
+if ! ps -p "$PID" >/dev/null 2>&1; then
+  echo "Process $PID is not running." >&2
+  exit 1
+fi
 PROCESS_NAME=$(ps -p "$PID" -o comm=)
 
-# Check for jemalloc references in the open files of the process
-echo "Running lsof -p"
-echo "$(lsof -p "$PID")"
+LSOF_OUT=$(lsof -p "$PID" || true)
+echo "Open files (lsof -p $PID):"
+echo "$LSOF_OUT"
 echo ""
 
-echo "Looking in /proc/$PID/maps"
-find "/proc/$PID/maps"
-echo ""
-JEMALLOC_REF=$(lsof -p "$PID" | grep "libjemalloc.2.dylib")
-
-if [ -z "$JEMALLOC_REF" ]; then
-  echo "No jemalloc references found for process '$PROCESS_NAME' (PID: $PID)."
-  kill -9 "$PID"
-  exit 1
-else
+if echo "$LSOF_OUT" | grep -q "libjemalloc.2.dylib"; then
   echo "Process '$PROCESS_NAME' (PID: $PID) is using jemalloc."
-  echo "jemalloc reference found at:"
-  echo "$JEMALLOC_REF"
+else
+  echo "No jemalloc references found for process '$PROCESS_NAME' (PID: $PID)." >&2
+  exit 1
 fi
