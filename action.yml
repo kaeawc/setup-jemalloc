@@ -30,13 +30,34 @@ runs:
   using: "composite"
   steps:
 
+    - name: "Detect platform"
+      if: runner.os == 'Linux'
+      id: platform
+      shell: bash
+      run: |
+        # Discriminate the cache by distro+version so a library built on one
+        # distro/libc (e.g. musl on Alpine, or a newer glibc) is never restored
+        # into an incompatible one. Fall back to a libc tag, then 'unknown'.
+        plat=""
+        if [ -r /etc/os-release ]; then
+          . /etc/os-release
+          plat="${ID:-}-${VERSION_ID:-}"
+        fi
+        if [ -z "$plat" ] || [ "$plat" = "-" ]; then
+          if ls /lib/ld-musl-* >/dev/null 2>&1; then plat="musl"; else plat="glibc"; fi
+        fi
+        # Sanitize to a safe cache-key segment.
+        plat="$(printf '%s' "$plat" | tr -c 'A-Za-z0-9._-' '_')"
+        echo "tag=$plat" >> "$GITHUB_OUTPUT"
+        echo "Platform cache tag: $plat"
+
     - name: "Restore jemalloc"
       if: runner.os == 'Linux'
       id: cache-jemalloc
       uses: actions/cache/restore@v6
       with:
         path: /tmp/libjemalloc.so.2
-        key: v8-${{ runner.os }}-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
+        key: v8-${{ runner.os }}-${{ runner.arch }}-${{ steps.platform.outputs.tag }}-jemalloc-${{ inputs.jemalloc-version }}
 
     - name: "Relocate jemalloc to expected directory"
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit == 'true' }}
@@ -95,7 +116,7 @@ runs:
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}
       with:
         path: /tmp/libjemalloc.so.2
-        key: v8-${{ runner.os }}-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
+        key: v8-${{ runner.os }}-${{ runner.arch }}-${{ steps.platform.outputs.tag }}-jemalloc-${{ inputs.jemalloc-version }}
 
     - name: "Remove download directory"
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}
