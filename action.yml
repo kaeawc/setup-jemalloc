@@ -26,7 +26,7 @@ outputs:
     description: "Windows only: path to jemalloc-run.exe, the launcher that runs a command with jemalloc injected (there is no transparent preload on Windows). Empty on other OSes."
     value: ${{ steps.config-win.outputs.jemalloc-run }}
   interpose-dylib:
-    description: "macOS only: path to the jemalloc dyld interposer dylib. The action sets DYLD_INSERT_LIBRARIES to it; use this to insert jemalloc explicitly (e.g. when SIP strips DYLD_* from your shell). Empty on other OSes."
+    description: "macOS only: path to the jemalloc dyld interposer dylib. Wrap a command with DYLD_INSERT_LIBRARIES=<this> to run it with jemalloc (the action does not insert it globally). Empty on other OSes."
     value: ${{ steps.config-mac.outputs.interpose-dylib }}
 
 # Linux uses transparent LD_PRELOAD; Windows has no preload equivalent, so it
@@ -290,21 +290,19 @@ runs:
         path: ${{ runner.temp }}/jemalloc-dist
         key: v9-macOS-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
 
-    - name: "Configure DYLD_INSERT_LIBRARIES (macOS)"
+    - name: "Expose the interposer (macOS)"
       if: runner.os == 'macOS'
       id: config-mac
       shell: bash
       run: |
         dist="$RUNNER_TEMP/jemalloc-dist"
         interposer="$dist/jemalloc_interpose.dylib"
-        # Best-effort transparent insertion (survives to non-restricted child
-        # processes; SIP strips it for Apple-protected binaries and possibly the
-        # shell itself - hence also expose the path as an output to insert
-        # explicitly).
-        {
-          echo "DYLD_INSERT_LIBRARIES=$interposer"
-          echo "MallocNanoZone=0"
-        } >> "$GITHUB_ENV"
+        # We deliberately DO NOT set DYLD_INSERT_LIBRARIES globally (via
+        # $GITHUB_ENV): inserting a malloc interposer into *every* process in a
+        # step can deadlock complex tools (e.g. the compiler) during jemalloc
+        # bootstrap, and SIP would strip it for protected binaries anyway.
+        # Instead, expose the interposer path and wrap the specific command
+        # whose allocations you want served by jemalloc (see README).
         {
           echo "interpose-dylib=$interposer"
           echo "library-path=$dist/libjemalloc.2.dylib"

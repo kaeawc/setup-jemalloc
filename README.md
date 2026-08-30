@@ -88,29 +88,30 @@ action instead builds a small **dyld interposer** dylib that redirects the C
 allocator (`malloc`/`free`/`calloc`/`realloc`/`malloc_size`) to jemalloc's
 `je_*`, and inserts *that* via `DYLD_INSERT_LIBRARIES`.
 
-The action sets `DYLD_INSERT_LIBRARIES` (and `MallocNanoZone=0`) for you, and
-also exposes the interposer path as the `interpose-dylib` output:
+Like the Windows path, this is a **wrap-your-command** model (the action does
+*not* insert jemalloc globally — doing so can deadlock complex tools such as
+the compiler, and SIP would strip it from protected binaries anyway). The
+action exposes the interposer as the `interpose-dylib` output; wrap the command
+whose allocations you want served by jemalloc:
 
 ```yaml
     - name: Set up jemalloc
       id: jemalloc
       uses: kaeawc/setup-jemalloc@v0.0.6
 
-    # Transparent for later steps' own (non-restricted) processes. If your
-    # shell strips DYLD_* (see below), insert it explicitly for your workload:
     - name: Run with jemalloc
       run: |
         DYLD_INSERT_LIBRARIES="${{ steps.jemalloc.outputs.interpose-dylib }}" ./my-workload
 ```
 
-**Limitations (System Integrity Protection):** macOS strips `DYLD_*` from the
-environment when launching Apple-protected binaries (`/bin/*`, `/usr/bin/*`,
-hardened runtime), so jemalloc **cannot** be inserted into those — only into
-non-restricted binaries (your own builds, Homebrew binaries). Depending on the
-runner's default shell, the transparently-set `DYLD_INSERT_LIBRARIES` may not
-survive into a step, which is why the `interpose-dylib` output is provided to
-insert it explicitly. arm64 (Apple silicon) and x64 are both supported;
-regular `arm64` dylibs inject fine (no `arm64e` needed).
+**Limitations:**
+- **SIP:** macOS strips `DYLD_*` when launching Apple-protected binaries
+  (`/bin/*`, `/usr/bin/*`, hardened runtime), so jemalloc can only be inserted
+  into non-restricted binaries (your own builds, Homebrew binaries).
+- As with any malloc interposer, some programs may be incompatible; wrap the
+  specific workload you want accelerated rather than inserting globally.
+- arm64 (Apple silicon) and x64 are both supported; regular `arm64` dylibs
+  inject fine (no `arm64e` needed).
 
 ## Unsupported Platforms
 
