@@ -191,3 +191,46 @@ jobs:
           set /p SERVED=<stats.txt
           if %SERVED% LEQ 0 ( echo ERROR: jemalloc served nothing & exit /b 1 )
           echo SUCCESS: jemalloc served %SERVED% allocations for the wrapped process
+
+  # macOS (issue #32): exercise the WIRED action. macOS has no working
+  # transparent jemalloc preload, so the action builds a dyld interposer; here
+  # we run the action, then insert its interposer into a workload and prove
+  # jemalloc actually served that process's malloc (and it exited cleanly).
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-14, arch: arm64 }
+          # x64 (macos-13, Intel) uses the identical code path but GitHub's
+          # Intel macOS runners are heavily queue-starved and being phased out,
+          # so it is not part of the gate. Enable locally / on-demand to check.
+          # - { runner: macos-13, arch: x64 }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run jemalloc action
+        id: jemalloc
+        uses: ./
+
+      - name: Verify jemalloc serves a wrapped process
+        run: |
+          set -uo pipefail
+          echo "interpose-dylib output: ${{ steps.jemalloc.outputs.interpose-dylib }}"
+          echo "library-path output:    ${{ steps.jemalloc.outputs.library-path }}"
+          echo "cache-hit output:       ${{ steps.jemalloc.outputs.cache-hit }}"
+          # Compile the workload WITHOUT the interposer (the action does not set
+          # DYLD_INSERT_LIBRARIES globally), then wrap only the workload with it.
+          cc -O2 -o zone_check macos/zone_check.c
+          export JEMALLOC_INTERPOSE_STATS="$PWD/calls.txt"
+          DYLD_INSERT_LIBRARIES="${{ steps.jemalloc.outputs.interpose-dylib }}" ./zone_check
+          rc=$?
+          calls="$(cat calls.txt 2>/dev/null || echo 0)"
+          echo "wrapped process exit=$rc ; jemalloc-served malloc calls=$calls"
+          if [ "$rc" = "0" ] && [ "${calls:-0}" -gt 0 ]; then
+            echo "SUCCESS: jemalloc served $calls malloc calls for the wrapped process on ${{ matrix.runner }}"
+          else
+            echo "::error::jemalloc did not serve the wrapped process on ${{ matrix.runner }} (rc=$rc calls=$calls)"
+            exit 1
+          fi

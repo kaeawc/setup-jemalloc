@@ -79,9 +79,44 @@ child process's C runtime allocator to jemalloc. Notes and limitations:
   `windows-latest` has Visual Studio, and the action installs MSYS2/mingw for
   the jemalloc build itself.
 
+## macOS
+
+On modern macOS, `DYLD_INSERT_LIBRARIES`'ing jemalloc **alone does not replace
+the allocator** (neither jemalloc's malloc-zone override nor flat-namespace
+symbol interposition routes `malloc` to jemalloc — verified on `macos-14`). The
+action instead builds a small **dyld interposer** dylib that redirects the C
+allocator (`malloc`/`free`/`calloc`/`realloc`/`malloc_size`) to jemalloc's
+`je_*`, and inserts *that* via `DYLD_INSERT_LIBRARIES`.
+
+Like the Windows path, this is a **wrap-your-command** model (the action does
+*not* insert jemalloc globally — doing so can deadlock complex tools such as
+the compiler, and SIP would strip it from protected binaries anyway). The
+action exposes the interposer as the `interpose-dylib` output; wrap the command
+whose allocations you want served by jemalloc:
+
+```yaml
+    - name: Set up jemalloc
+      id: jemalloc
+      uses: kaeawc/setup-jemalloc@v0.0.6
+
+    - name: Run with jemalloc
+      run: |
+        DYLD_INSERT_LIBRARIES="${{ steps.jemalloc.outputs.interpose-dylib }}" ./my-workload
+```
+
+**Limitations:**
+- **SIP:** macOS strips `DYLD_*` when launching Apple-protected binaries
+  (`/bin/*`, `/usr/bin/*`, hardened runtime), so jemalloc can only be inserted
+  into non-restricted binaries (your own builds, Homebrew binaries).
+- As with any malloc interposer, some programs may be incompatible; wrap the
+  specific workload you want accelerated rather than inserting globally.
+- arm64 (Apple silicon) and x64 are both supported; regular `arm64` dylibs
+  inject fine (no `arm64e` needed).
+
 ## Unsupported Platforms
 
-- `macos`: Requires jemalloc to be built with arm64e target architecture for M1/M2/M3.
+_None — Linux, macOS, and Windows are all supported (with the platform-specific
+mechanisms and caveats described above)._
 
 ## Example
 ```yaml

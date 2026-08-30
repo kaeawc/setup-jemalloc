@@ -1,9 +1,12 @@
 #!/bin/bash
 #
 # Verify that a given PID has jemalloc inserted (macOS). Prints diagnostics and
-# exits non-zero if jemalloc is not inserted. Read-only verifier — it does not
-# signal the target. macOS is currently unsupported (see README); this is kept
-# in parity with the Linux verifier.
+# exits non-zero if jemalloc is not mapped into the process. Read-only verifier
+# — it does not signal the target.
+#
+# The action inserts a dyld interposer (jemalloc_interpose.dylib) via
+# DYLD_INSERT_LIBRARIES, which pulls in libjemalloc.2.dylib and routes the
+# process's malloc to jemalloc.
 
 if [ -z "${1:-}" ]; then
   echo "Usage: $0 <pid>"
@@ -17,26 +20,27 @@ if [ -z "${DYLD_INSERT_LIBRARIES:-}" ]; then
 fi
 echo "DYLD_INSERT_LIBRARIES is set to $DYLD_INSERT_LIBRARIES"
 
-if [ "${DYLD_FORCE_FLAT_NAMESPACE:-}" != "1" ]; then
-  echo "DYLD_FORCE_FLAT_NAMESPACE must be set to 1 on macOS to insert jemalloc" >&2
-  exit 1
-fi
-echo "DYLD_FORCE_FLAT_NAMESPACE is set to $DYLD_FORCE_FLAT_NAMESPACE"
-
 if ! ps -p "$PID" >/dev/null 2>&1; then
   echo "Process $PID is not running." >&2
   exit 1
 fi
 PROCESS_NAME=$(ps -p "$PID" -o comm=)
 
-LSOF_OUT=$(lsof -p "$PID" || true)
-echo "Open files (lsof -p $PID):"
-echo "$LSOF_OUT"
-echo ""
+# Is jemalloc actually mapped into the process's address space?
+MAPPED=""
+if command -v vmmap >/dev/null 2>&1; then
+  MAPPED=$(vmmap "$PID" 2>/dev/null | grep -m1 "libjemalloc.2.dylib" || true)
+fi
+if [ -z "$MAPPED" ] && command -v lsof >/dev/null 2>&1; then
+  MAPPED=$(lsof -p "$PID" 2>/dev/null | grep -m1 "libjemalloc.2.dylib" || true)
+fi
 
-if echo "$LSOF_OUT" | grep -q "libjemalloc.2.dylib"; then
+if [ -n "$MAPPED" ]; then
   echo "Process '$PROCESS_NAME' (PID: $PID) is using jemalloc."
+  echo "$MAPPED"
 else
   echo "No jemalloc references found for process '$PROCESS_NAME' (PID: $PID)." >&2
+  echo "(On macOS, SIP strips DYLD_* from Apple-protected binaries, so jemalloc" >&2
+  echo " cannot be inserted into those; use a non-restricted binary.)" >&2
   exit 1
 fi
