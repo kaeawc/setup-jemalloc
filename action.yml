@@ -73,7 +73,7 @@ runs:
       uses: actions/cache/restore@v6
       with:
         path: /tmp/libjemalloc.so.2
-        key: v8-${{ runner.os }}-${{ runner.arch }}-${{ steps.platform.outputs.tag }}-jemalloc-${{ inputs.jemalloc-version }}
+        key: v9-${{ runner.os }}-${{ runner.arch }}-${{ steps.platform.outputs.tag }}-jemalloc-${{ inputs.jemalloc-version }}
 
     - name: "Relocate jemalloc to expected directory"
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit == 'true' }}
@@ -102,7 +102,11 @@ runs:
       run: |
         cd jemalloc-${{ inputs.jemalloc-version }}
         # --with-huge-page-size=$(awk '/Hugepagesize:/ {print $2/1024 "MB"}' /proc/meminfo)
-        ./configure
+        # --disable-cxx: the LD_PRELOAD malloc override doesn't need jemalloc's
+        # own operator new/delete (C++ new routes through malloc, which is
+        # replaced), and jemalloc 5.3.0's C++ shim fails to build against very
+        # new libstdc++ (e.g. GCC 15 on Arch: std::__throw_bad_alloc removed).
+        ./configure --disable-cxx
         make -j"$(nproc)"
         # Auto-detect sudo: distro containers run as root, often without sudo.
         if [ "$(id -u)" = "0" ] || ! command -v sudo >/dev/null 2>&1; then SUDO=""; else SUDO="sudo"; fi
@@ -132,7 +136,7 @@ runs:
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}
       with:
         path: /tmp/libjemalloc.so.2
-        key: v8-${{ runner.os }}-${{ runner.arch }}-${{ steps.platform.outputs.tag }}-jemalloc-${{ inputs.jemalloc-version }}
+        key: v9-${{ runner.os }}-${{ runner.arch }}-${{ steps.platform.outputs.tag }}-jemalloc-${{ inputs.jemalloc-version }}
 
     - name: "Remove download directory"
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}

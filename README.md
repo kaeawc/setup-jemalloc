@@ -17,7 +17,7 @@ matrix of distros × architectures:
 | Rocky Linux 9 | glibc | ✅ | ✅ |
 | openSUSE Leap 15 | glibc | ✅ | ✅ |
 | Arch Linux | glibc | ✅ | — (no official arm64 image) |
-| Alpine 3.20 | **musl** | ✅ | ✅ |
+| Alpine 3.20 | **musl** | ✅ | — (GitHub runs JS actions in Alpine only on x64) |
 
 The cache is keyed by OS, architecture, and distro/version, so a library built
 for one platform is never restored into an incompatible one.

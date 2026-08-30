@@ -49,11 +49,13 @@ jobs:
           - { image: "rockylinux:9",     arch: x64,   runner: ubuntu-24.04,     pm: dnf }
           - { image: "archlinux:latest", arch: x64,   runner: ubuntu-24.04,     pm: pacman }
           - { image: "opensuse/leap:15", arch: x64,   runner: ubuntu-24.04,     pm: zypper }
-          # ---- arm64 (no official arm64 archlinux image, so Arch is x64-only) ----
+          # ---- arm64 ----
+          # Notes: no official arm64 archlinux image (Arch is x64-only); and
+          # GitHub only supports JS actions in Alpine containers on x64, so
+          # Alpine arm64 is not runnable here (musl is still covered by x64).
           - { image: "ubuntu:22.04",     arch: arm64, runner: ubuntu-24.04-arm, pm: apt }
           - { image: "ubuntu:24.04",     arch: arm64, runner: ubuntu-24.04-arm, pm: apt }
           - { image: "debian:12",        arch: arm64, runner: ubuntu-24.04-arm, pm: apt }
-          - { image: "alpine:3.20",      arch: arm64, runner: ubuntu-24.04-arm, pm: apk }
           - { image: "fedora:40",        arch: arm64, runner: ubuntu-24.04-arm, pm: dnf }
           - { image: "rockylinux:9",     arch: arm64, runner: ubuntu-24.04-arm, pm: dnf }
           - { image: "opensuse/leap:15", arch: arm64, runner: ubuntu-24.04-arm, pm: zypper }
