@@ -100,26 +100,26 @@ jobs:
         uses: ./
 
       - name: Verify outputs + jemalloc preloaded
+        shell: bash
         run: |
           echo "cache-hit=${{ steps.jemalloc.outputs.cache-hit }}"
           echo "library-path=${{ steps.jemalloc.outputs.library-path }}"
           test "${{ steps.jemalloc.outputs.library-path }}" = "/usr/local/lib/libjemalloc.so.2"
           test "${{ steps.jemalloc.outputs.ld-preload }}" = "/usr/local/lib/libjemalloc.so.2"
           case "${{ steps.jemalloc.outputs.cache-hit }}" in true|false) ;; *) echo "bad cache-hit" >&2; exit 1 ;; esac
-          echo "--- diag: installed library ---"
-          ls -la /usr/local/lib/libjemalloc.so.2 2>&1 || echo "MISSING at /usr/local/lib"
-          echo "-- ldd on the lib --"; env -u LD_PRELOAD ldd /usr/local/lib/libjemalloc.so.2 2>&1 | head || true
-          echo "-- explicit preload of /bin/true --"; LD_PRELOAD=/usr/local/lib/libjemalloc.so.2 /bin/true; echo "preload rc=$?"
-          echo "-- ldconfig -p jemalloc --"; env -u LD_PRELOAD ldconfig -p 2>/dev/null | grep -i jemalloc || echo "(not in ldconfig cache)"
           echo "LD_PRELOAD=$LD_PRELOAD"
-          nohup bash -c 'while true; do sleep 10; done' > /dev/null 2>&1 < /dev/null &
+          # Dependency-free, long-lived workload (sleep is always present and
+          # dynamically linked, so jemalloc still maps into it).
+          sleep 600 &
           echo $! > pid1
+          sleep 2
           ./scripts/linux/verify.sh "$(cat pid1)"
 
       - name: Run jemalloc action (2nd invocation - #5 regression)
         uses: ./
 
       - name: Assert 1st-invocation process survived the relocate
+        shell: bash
         run: |
           if ! kill -0 "$(cat pid1)" 2>/dev/null; then
             echo "::error::pid1 (jemalloc-preloaded) died across the 2nd invocation - regression of #5 on ${{ matrix.image }} (${{ matrix.arch }})"
