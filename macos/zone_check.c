@@ -31,7 +31,9 @@ int main(void) {
     printf("zone=%s\n", zname ? zname : "(unknown)");
     free(warm);
 
-    mallctl_t mc = (mallctl_t)dlsym(RTLD_DEFAULT, "mallctl");
+    /* jemalloc may be prefixed (je_mallctl) or unprefixed (mallctl). */
+    mallctl_t mc = (mallctl_t)dlsym(RTLD_DEFAULT, "je_mallctl");
+    if (!mc) mc = (mallctl_t)dlsym(RTLD_DEFAULT, "mallctl");
     if (!mc) {
         printf("jemalloc_loaded=no\n");
         printf("served_by_jemalloc=no\n");
