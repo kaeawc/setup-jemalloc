@@ -135,6 +135,9 @@ jobs:
           [ -f pid1 ] && { kill "$(cat pid1)" 2>/dev/null || true; rm -f pid1; } || true
 
   # Required status check: green only if every distro/arch leg passed.
+  # NOTE: `linux` and `linux_double_invocation` are intentionally identical gate
+  # jobs (the branch ruleset requires both check names, which a matrix leg can't
+  # satisfy). Keep their gate scripts in sync.
   linux:
     needs: distro_matrix
     if: always()
