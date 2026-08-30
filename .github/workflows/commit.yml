@@ -193,10 +193,12 @@ jobs:
           echo SUCCESS: jemalloc served %SERVED% allocations for the wrapped process
 
 
-  # Phase 1 (issue #32): probe macOS. Determine whether jemalloc can actually
-  # take over the process allocator when inserted (arm64 first; Intel runners
-  # are queue-starved). Definitive detection: dlsym mallctl + query jemalloc's
-  # version inside the wrapped process. Not wired into the action.
+
+  # Phase 1 (issue #32): probe macOS. On modern macOS, DYLD-inserting jemalloc
+  # alone does not replace the allocator; the supported path is a dyld
+  # INTERPOSER dylib. This proves whether interposition genuinely routes the
+  # process's malloc to jemalloc (jemalloc stats.allocated grows). arm64 only
+  # for now (Intel runners are queue-starved). Not wired into the action.
   macos:
     strategy:
       fail-fast: false
@@ -207,38 +209,36 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Build jemalloc dylib (unprefixed, for flat-namespace interposition)
+      - name: Build jemalloc + interposer
         run: |
           set -euo pipefail
           curl -fLo jemalloc.tar.bz2 https://github.com/jemalloc/jemalloc/releases/download/5.3.0/jemalloc-5.3.0.tar.bz2
           bash scripts/linux/checksums.sh jemalloc.tar.bz2 5.3.0 ""
           tar xf jemalloc.tar.bz2
           cd jemalloc-5.3.0
-          ./configure --disable-cxx --with-jemalloc-prefix=""
+          ./configure --disable-cxx
           make -j"$(sysctl -n hw.ncpu)"
-          ls -la lib/
-          dylib="$(ls lib/libjemalloc.*.dylib | head -n1)"
-          file "$dylib"
-          cp "$dylib" "$GITHUB_WORKSPACE/libjemalloc.dylib"
-          echo "--- exports: malloc / mallctl present? ---"
-          nm -gU "$dylib" | grep -E " _(malloc|mallctl|free)$" | head
+          cd ..
+          libdir="$PWD/jemalloc-5.3.0/lib"
+          ls -la "$libdir"
+          echo "--- jemalloc install name ---"; otool -D "$libdir"/libjemalloc.2.dylib || true
+          cc -O2 -dynamiclib macos/jemalloc_interpose.c -o jemalloc_interpose.dylib \
+             -L "$libdir" -ljemalloc -Wl,-rpath,"$libdir"
+          echo "--- interposer deps ---"; otool -L jemalloc_interpose.dylib
 
-      - name: Probe whether jemalloc actually serves malloc
+      - name: Verify jemalloc actually serves malloc (via interposition)
         run: |
           set -uo pipefail
           cc -O2 -o zone_check macos/zone_check.c
-          dylib="$GITHUB_WORKSPACE/libjemalloc.dylib"
-          served=no
-          for label in "MallocNanoZone=0" "DYLD_FORCE_FLAT_NAMESPACE=1 MallocNanoZone=0"; do
-            echo "===== insert + $label ====="
-            out="$(env DYLD_INSERT_LIBRARIES="$dylib" $label ./zone_check)"
-            echo "$out"
-            if printf '%s\n' "$out" | grep -q '^served_by_jemalloc=yes$'; then served=yes; fi
-          done
-          echo "== decision: served_by_jemalloc across mechanisms = $served =="
-          if [ "$served" = "yes" ]; then
-            echo "SUCCESS: jemalloc genuinely serves the process's malloc on ${{ matrix.runner }}"
+          libdir="$PWD/jemalloc-5.3.0/lib"
+          echo "===== baseline (no insert) ====="
+          ./zone_check
+          echo "===== DYLD_INSERT interposer ====="
+          out="$(env DYLD_INSERT_LIBRARIES="$PWD/jemalloc_interpose.dylib" DYLD_LIBRARY_PATH="$libdir" ./zone_check)"
+          echo "$out"
+          if printf '%s\n' "$out" | grep -q '^served_by_jemalloc=yes$'; then
+            echo "SUCCESS: jemalloc genuinely serves the process's malloc via interposition on ${{ matrix.runner }}"
           else
-            echo "::error::jemalloc is loaded but does NOT serve malloc on ${{ matrix.runner }} (transparent replacement not functional)"
+            echo "::error::interposition did not route malloc to jemalloc on ${{ matrix.runner }}"
             exit 1
           fi
