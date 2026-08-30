@@ -20,7 +20,7 @@ jobs:
     # Add typical environment setup steps for node/java/python etc before jemalloc
     
     - name: Set up jemalloc
-      uses: kaeawc/setup-jemalloc@v0.0.5
+      uses: kaeawc/setup-jemalloc@v0.0.6
 
     # Any processes run (bash, java, golang, python, etc) will benefit from using jemalloc automatically.
     - name: Build Application
@@ -50,7 +50,7 @@ already preloaded into running processes.
 ```yaml
     - name: Set up jemalloc
       id: jemalloc
-      uses: kaeawc/setup-jemalloc@v0.0.5
+      uses: kaeawc/setup-jemalloc@v0.0.6
 
     - name: Use the outputs
       run: |
