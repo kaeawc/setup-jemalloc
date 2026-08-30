@@ -1,44 +1,39 @@
 #!/bin/bash
+#
+# Verify that a given PID has jemalloc preloaded (Linux). Prints diagnostics and
+# exits non-zero if jemalloc is not preloaded. Intended for CI checks and manual
+# debugging. This is a read-only verifier — it does not signal the target.
 
-if [ -z "$1" ]; then
-  echo "Usage: $0 <process_name>"
+if [ -z "${1:-}" ]; then
+  echo "Usage: $0 <pid>"
   exit 1
 fi
+PID="$1"
 
-export PID="$1"
-if [ -z "$PID" ]; then
-  echo "Process '$1' not found."
+if [ -z "${LD_PRELOAD:-}" ]; then
+  echo "LD_PRELOAD is not set — required on Linux to preload jemalloc" >&2
   exit 1
 fi
-
-if [ -z "$LD_PRELOAD" ]; then
-  echo "LD_PRELOAD is not set, required on Linux platform to preload jemalloc"
-  kill -9 "$PID"
-  exit 1
-fi
-
 echo "LD_PRELOAD is set to $LD_PRELOAD"
 
-# Get the process name
+if ! ps -p "$PID" >/dev/null 2>&1; then
+  echo "Process $PID is not running." >&2
+  exit 1
+fi
 PROCESS_NAME=$(ps -p "$PID" -o comm=)
 
-# Check for jemalloc references in the open files of the process
-echo "Running lsof -p"
-echo "$(lsof -p "$PID")"
+# Diagnostics: open files (captured once) and memory mappings.
+LSOF_OUT=$(lsof -p "$PID" || true)
+echo "Open files (lsof -p $PID):"
+echo "$LSOF_OUT"
+echo ""
+echo "jemalloc entries in /proc/$PID/maps:"
+grep "libjemalloc.so.2" "/proc/$PID/maps" || echo "  (none)"
 echo ""
 
-echo "Looking in /proc/$PID/maps"
-find "/proc/$PID/maps"
-echo ""
-
-JEMALLOC_REF=$(lsof -p "$PID" | grep "libjemalloc.so.2")
-
-if [ -z "$JEMALLOC_REF" ]; then
-  echo "No jemalloc references found for process '$PROCESS_NAME' (PID: $PID)."
-  kill -9 "$PID"
-  exit 1
-else
+if echo "$LSOF_OUT" | grep -q "libjemalloc.so.2"; then
   echo "Process '$PROCESS_NAME' (PID: $PID) is using jemalloc."
-  echo "jemalloc reference found at:"
-  echo "$JEMALLOC_REF"
+else
+  echo "No jemalloc references found for process '$PROCESS_NAME' (PID: $PID)." >&2
+  exit 1
 fi
