@@ -216,3 +216,74 @@ jobs:
           cd ..
           gcc windows/smoke.c -o smoke.exe
           ./smoke.exe libjemalloc.dll
+
+  # Phase 2+3 (issue #28): build the Detours injector (shim DLL + launcher),
+  # run a workload through it, and prove jemalloc actually served the process's
+  # allocations (and that it exited cleanly - the mixed-allocator crash guard).
+  # Not wired into the action yet; not a required check.
+  windows_injector:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-make
+            make
+            autoconf
+            binutils
+            curl
+            tar
+            bzip2
+
+      - name: Build jemalloc.dll (mingw64)
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          curl -fLo jemalloc.tar.bz2 https://github.com/jemalloc/jemalloc/releases/download/5.3.0/jemalloc-5.3.0.tar.bz2
+          bash scripts/linux/checksums.sh jemalloc.tar.bz2 5.3.0 ""
+          tar xf jemalloc.tar.bz2
+          cd jemalloc-5.3.0
+          ./configure --disable-cxx
+          make -j"$(nproc)"
+          cp lib/jemalloc.dll ../dist/
+          cd ..
+          # Ship the mingw runtime DLLs that jemalloc.dll imports, next to it.
+          for dep in $(objdump -p dist/jemalloc.dll | awk '/DLL Name:/{print $3}'); do
+            if [ -f "/mingw64/bin/$dep" ]; then cp "/mingw64/bin/$dep" dist/; echo "bundled dep: $dep"; fi
+          done
+          ls -la dist/
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build Detours, shim, launcher, test (MSVC)
+        shell: cmd
+        run: |
+          git clone --depth 1 https://github.com/microsoft/Detours || exit /b 1
+          pushd Detours && nmake || (popd & exit /b 1)
+          popd
+          cl /nologo /O2 /MD /EHsc /D_CRT_SECURE_NO_WARNINGS /I Detours\include windows\jemalloc_run.cpp /Fe:dist\jemalloc-run.exe /link Detours\lib.X64\detours.lib || exit /b 1
+          cl /nologo /O2 /MD /EHsc /D_CRT_SECURE_NO_WARNINGS /LD /I Detours\include windows\jemalloc_shim.cpp /Fe:dist\jemalloc-shim.dll /link Detours\lib.X64\detours.lib || exit /b 1
+          cl /nologo /O2 /MD /D_CRT_SECURE_NO_WARNINGS windows\alloc_test.c /Fe:dist\alloc_test.exe || exit /b 1
+          dir dist
+
+      - name: Verify jemalloc actually served the wrapped process
+        shell: cmd
+        run: |
+          cd dist
+          set JEMALLOC_SHIM_STATS=%CD%\stats.txt
+          jemalloc-run.exe alloc_test.exe
+          set RC=%ERRORLEVEL%
+          echo wrapped process exit code: %RC%
+          if not "%RC%"=="0" ( echo ERROR: wrapped process failed/crashed & exit /b 1 )
+          if not exist stats.txt ( echo ERROR: shim wrote no stats - injection did not run & exit /b 1 )
+          type stats.txt
+          set /p SERVED=<stats.txt
+          echo jemalloc served %SERVED% allocations
+          if %SERVED% LEQ 0 ( echo ERROR: jemalloc served nothing - not actually used & exit /b 1 )
+          echo SUCCESS: jemalloc served %SERVED% allocations for the wrapped process
