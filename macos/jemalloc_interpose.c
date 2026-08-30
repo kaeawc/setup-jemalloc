@@ -29,6 +29,19 @@ static void   (*sys_free)(void *);
 static void  *(*sys_realloc)(void *, size_t);
 static size_t (*sys_malloc_size)(const void *);
 
+#include <stdio.h>
+static volatile long g_calls = 0;
+
+__attribute__((destructor))
+static void write_stats(void) {
+    const char *f = getenv("JEMALLOC_INTERPOSE_STATS");
+    if (!f || !*f) return;
+    FILE *fp = fopen(f, "w");
+    if (!fp) return;
+    fprintf(fp, "%ld\n", g_calls);
+    fclose(fp);
+}
+
 __attribute__((constructor))
 static void init_sys(void) {
     sys_malloc      = (void *(*)(size_t))dlsym(RTLD_NEXT, "malloc");
@@ -57,7 +70,7 @@ static int owned(const void *u) {
     return ((const Header *)((const char *)u - HDR))->magic == JE_MAGIC;
 }
 
-static void *my_malloc(size_t n) { return je_alloc(n); }
+static void *my_malloc(size_t n) { __sync_fetch_and_add(&g_calls, 1); return je_alloc(n); }
 
 static void my_free(void *p) {
     if (!p) return;

@@ -226,6 +226,7 @@ jobs:
           cc -O2 -dynamiclib macos/jemalloc_interpose.c -o jemalloc_interpose.dylib \
              -L "$libdir" -ljemalloc -Wl,-rpath,"$libdir"
           echo "--- interposer deps ---"; otool -L jemalloc_interpose.dylib
+          echo "--- __interpose section present? ---"; otool -s __DATA __interpose jemalloc_interpose.dylib || true
 
       - name: Verify jemalloc actually serves malloc (via interposition)
         run: |
@@ -235,8 +236,12 @@ jobs:
           echo "===== baseline (no insert) ====="
           ./zone_check
           echo "===== DYLD_INSERT interposer ====="
-          out="$(env DYLD_INSERT_LIBRARIES="$PWD/jemalloc_interpose.dylib" ./zone_check)"
+          export JEMALLOC_INTERPOSE_STATS="$PWD/interpose_calls.txt"
+          out="$(env DYLD_INSERT_LIBRARIES="$PWD/jemalloc_interpose.dylib" DYLD_PRINT_INTERPOSING=1 ./zone_check 2>interpose_dyld.txt)"
           echo "$out"
+          echo "--- interpose my_malloc call count ---"; cat interpose_calls.txt 2>/dev/null || echo "(no stats file)"
+          echo "--- dyld interposing (grep malloc) ---"; grep -i "malloc" interpose_dyld.txt | head || echo "(no interposing log)"
+          calls="$(cat interpose_calls.txt 2>/dev/null || echo 0)"
           if printf '%s\n' "$out" | grep -q '^served_by_jemalloc=yes$'; then
             echo "SUCCESS: jemalloc genuinely serves the process's malloc via interposition on ${{ matrix.runner }}"
           else
