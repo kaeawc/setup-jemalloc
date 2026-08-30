@@ -218,6 +218,7 @@ jobs:
           cd jemalloc-5.3.0
           ./configure --disable-cxx
           make -j"$(sysctl -n hw.ncpu)"
+          sudo make install   # -> /usr/local/lib/libjemalloc.2.dylib (its install name)
           cd ..
           libdir="$PWD/jemalloc-5.3.0/lib"
           ls -la "$libdir"
@@ -234,7 +235,7 @@ jobs:
           echo "===== baseline (no insert) ====="
           ./zone_check
           echo "===== DYLD_INSERT interposer ====="
-          out="$(env DYLD_INSERT_LIBRARIES="$PWD/jemalloc_interpose.dylib" DYLD_LIBRARY_PATH="$libdir" ./zone_check)"
+          out="$(env DYLD_INSERT_LIBRARIES="$PWD/jemalloc_interpose.dylib" ./zone_check)"
           echo "$out"
           if printf '%s\n' "$out" | grep -q '^served_by_jemalloc=yes$'; then
             echo "SUCCESS: jemalloc genuinely serves the process's malloc via interposition on ${{ matrix.runner }}"
