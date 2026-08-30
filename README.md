@@ -26,17 +26,19 @@ for one platform is never restored into an incompatible one.
 
 Because jemalloc is built from source, the runner (or container) must have a C
 toolchain and a few utilities available **before** this action runs: `gcc`,
-`make`, `curl`, `bzip2`, `tar`, `ca-certificates`, and (for verification)
-`lsof`. GitHub-hosted `ubuntu-*` runners already include these. In a minimal
-distro container, install them first — for example:
+`make`, `curl`, `bzip2`, `tar`, and `ca-certificates`. GitHub-hosted `ubuntu-*`
+runners already include these. In a minimal distro container, install them
+first — for example:
 
 ```yaml
     # Debian/Ubuntu
-    - run: apt-get update && apt-get install -y gcc make curl bzip2 tar ca-certificates lsof
+    - run: apt-get update && apt-get install -y gcc make curl bzip2 tar ca-certificates
     # Alpine (musl) — gcompat/libstdc++ let GitHub's node run on musl
-    - run: apk add --no-cache build-base curl bzip2 tar ca-certificates lsof git bash gcompat libstdc++
+    - run: apk add --no-cache build-base curl bzip2 tar ca-certificates git bash gcompat libstdc++
     - uses: kaeawc/setup-jemalloc@v0.0.6
 ```
+
+`scripts/linux/verify.sh` relies only on `/proc`, so it needs no extra tools.
 
 ## Unsupported Platforms
 

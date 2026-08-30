@@ -71,25 +71,25 @@ jobs:
             apt)
               export DEBIAN_FRONTEND=noninteractive
               apt-get update
-              apt-get install -y gcc make curl bzip2 tar ca-certificates lsof zstd git
+              apt-get install -y gcc make curl bzip2 tar ca-certificates zstd git
               ;;
             apk)
-              apk add --no-cache build-base curl bzip2 tar ca-certificates lsof zstd git bash gcompat libstdc++
+              apk add --no-cache build-base curl bzip2 tar ca-certificates zstd git bash gcompat libstdc++
               ;;
             dnf)
               # --allowerasing lets `curl` replace the `curl-minimal` that
               # RHEL-family minimal images ship (otherwise a package conflict).
-              dnf install -y --allowerasing gcc make curl bzip2 tar ca-certificates lsof zstd git
+              dnf install -y --allowerasing gcc make curl bzip2 tar ca-certificates zstd git
               ;;
             pacman)
-              pacman -Sy --noconfirm --needed gcc make curl bzip2 tar ca-certificates lsof zstd git
+              pacman -Sy --noconfirm --needed gcc make curl bzip2 tar ca-certificates zstd git
               ;;
             zypper)
               # Leap images sometimes ship a broken/unreachable backports repo
               # that aborts the install refresh; drop it and import keys.
               zypper --non-interactive removerepo repo-backports-update >/dev/null 2>&1 || true
               zypper --non-interactive removerepo repo-openh264 >/dev/null 2>&1 || true
-              zypper --non-interactive --gpg-auto-import-keys install gcc make curl bzip2 tar lsof zstd git
+              zypper --non-interactive --gpg-auto-import-keys install gcc make curl bzip2 tar zstd git
               ;;
           esac
 
