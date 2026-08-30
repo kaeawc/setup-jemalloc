@@ -16,9 +16,17 @@
 # idempotent re-invocation never touches a mapped library at all.
 #
 # SUDO is overridable (e.g. SUDO="" in unit tests) so the logic can run
-# unprivileged against scratch paths.
-
-SUDO="${SUDO-sudo}"
+# unprivileged against scratch paths. When SUDO is left unset it is
+# auto-detected: empty as root or when sudo is absent (distro containers run
+# as root, often without sudo), otherwise "sudo". An explicitly set value
+# (including empty) is always honored.
+if [ -z "${SUDO+x}" ]; then
+  if [ "$(id -u)" = "0" ] || ! command -v sudo >/dev/null 2>&1; then
+    SUDO=""
+  else
+    SUDO="sudo"
+  fi
+fi
 
 # relocate_jemalloc <src> <dest>
 relocate_jemalloc() {

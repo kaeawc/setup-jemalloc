@@ -36,7 +36,7 @@ runs:
       uses: actions/cache/restore@v6
       with:
         path: /tmp/libjemalloc.so.2
-        key: v7-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
+        key: v8-${{ runner.os }}-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
 
     - name: "Relocate jemalloc to expected directory"
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit == 'true' }}
@@ -67,7 +67,9 @@ runs:
         # --with-huge-page-size=$(awk '/Hugepagesize:/ {print $2/1024 "MB"}' /proc/meminfo)
         ./configure
         make -j"$(nproc)"
-        sudo make install
+        # Auto-detect sudo: distro containers run as root, often without sudo.
+        if [ "$(id -u)" = "0" ] || ! command -v sudo >/dev/null 2>&1; then SUDO=""; else SUDO="sudo"; fi
+        $SUDO make install
         # Stage the built library for the cache-save step below.
         cp /usr/local/lib/libjemalloc.so.2 /tmp/
 
@@ -86,7 +88,7 @@ runs:
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}
       with:
         path: /tmp/libjemalloc.so.2
-        key: v7-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
+        key: v8-${{ runner.os }}-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
 
     - name: "Remove download directory"
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}
