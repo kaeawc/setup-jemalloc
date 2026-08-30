@@ -37,7 +37,26 @@ already preloaded into running processes.
 ## Inputs
 | Argument | Description | Default | Required |
 |----------|-------------|---------|---------|
-| jemalloc-version    | The version of jemalloc to be used | 5.3.0 | yes |
+| jemalloc-version | The version of jemalloc to be used | `5.3.0` | no |
+| jemalloc-sha256 | Optional SHA-256 to verify the downloaded tarball against. Overrides the built-in checksum and lets you pin a version that has no baked-in value. When empty and the version is unknown, the integrity check is skipped with a warning. | `""` | no |
+
+## Outputs
+| Name | Description |
+|------|-------------|
+| cache-hit | Whether the jemalloc library was restored from cache (`true`/`false`; empty on non-Linux runners). |
+| library-path | Absolute path to the installed `libjemalloc.so.2` (empty on non-Linux runners). |
+| ld-preload | The `LD_PRELOAD` value the action set (empty on non-Linux runners). |
+
+```yaml
+    - name: Set up jemalloc
+      id: jemalloc
+      uses: kaeawc/setup-jemalloc@v0.0.5
+
+    - name: Use the outputs
+      run: |
+        echo "cache-hit: ${{ steps.jemalloc.outputs.cache-hit }}"
+        echo "library:   ${{ steps.jemalloc.outputs.library-path }}"
+```
 
 ## Verification
 

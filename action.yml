@@ -12,7 +12,16 @@ inputs:
     description: "Optional SHA-256 of the jemalloc tarball. Overrides the built-in checksum and lets you pin a version that has no baked-in value. When empty and the version is unknown, the integrity check is skipped with a warning."
     required: false
     default: ""
-outputs: {}
+outputs:
+  cache-hit:
+    description: "Whether the jemalloc library was restored from cache ('true'/'false'; empty on non-Linux runners)."
+    value: ${{ steps.cache-jemalloc.outputs.cache-hit }}
+  library-path:
+    description: "Absolute path to the installed libjemalloc.so.2 (empty on non-Linux runners)."
+    value: ${{ steps.config.outputs.library-path }}
+  ld-preload:
+    description: "The LD_PRELOAD value the action set (empty on non-Linux runners)."
+    value: ${{ steps.config.outputs.ld-preload }}
 
 # Every step is gated on runner.os == 'Linux', so the action is a graceful
 # no-op on other runners; macOS and Windows are unsupported (see README).
@@ -64,9 +73,13 @@ runs:
 
     - name: "Configure LD_PRELOAD"
       if: runner.os == 'Linux'
+      id: config
       shell: bash
       run: |
-        echo 'LD_PRELOAD=/usr/local/lib/libjemalloc.so.2' >> $GITHUB_ENV
+        lib=/usr/local/lib/libjemalloc.so.2
+        echo "LD_PRELOAD=$lib" >> "$GITHUB_ENV"
+        echo "library-path=$lib" >> "$GITHUB_OUTPUT"
+        echo "ld-preload=$lib" >> "$GITHUB_OUTPUT"
 
     - name: "Save jemalloc"
       uses: actions/cache/save@v4
