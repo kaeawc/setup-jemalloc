@@ -5,7 +5,8 @@ author: "Jason Pearson"
 inputs:
   jemalloc-version:
     description: "Version of jemalloc to use"
-    required: "true"
+    # Not required: it has a default, so callers may omit it.
+    required: false
     default: "5.3.0"
   jemalloc-sha256:
     description: "Optional SHA-256 of the jemalloc tarball. Overrides the built-in checksum and lets you pin a version that has no baked-in value. When empty and the version is unknown, the integrity check is skipped with a warning."
@@ -56,7 +57,7 @@ runs:
         cd jemalloc-${{ inputs.jemalloc-version }}
         # --with-huge-page-size=$(awk '/Hugepagesize:/ {print $2/1024 "MB"}' /proc/meminfo)
         ./configure
-        make
+        make -j"$(nproc)"
         sudo make install
         # Stage the built library for the cache-save step below.
         cp /usr/local/lib/libjemalloc.so.2 /tmp/
