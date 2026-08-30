@@ -191,3 +191,54 @@ jobs:
           set /p SERVED=<stats.txt
           if %SERVED% LEQ 0 ( echo ERROR: jemalloc served nothing & exit /b 1 )
           echo SUCCESS: jemalloc served %SERVED% allocations for the wrapped process
+
+  # Phase 1 (issue #32): probe macOS. Build the jemalloc dylib on both arm64
+  # and x64 runners and verify - via the malloc zone - that jemalloc actually
+  # replaces the process allocator when inserted. Also measures whether the
+  # DYLD_* vars survive the runner's default shell (SIP stripping). Not wired
+  # into the action yet; not a required check.
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-13, arch: x64 }
+          - { runner: macos-14, arch: arm64 }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build jemalloc dylib
+        run: |
+          set -euo pipefail
+          curl -fLo jemalloc.tar.bz2 https://github.com/jemalloc/jemalloc/releases/download/5.3.0/jemalloc-5.3.0.tar.bz2
+          bash scripts/linux/checksums.sh jemalloc.tar.bz2 5.3.0 ""
+          tar xf jemalloc.tar.bz2
+          cd jemalloc-5.3.0
+          ./configure --disable-cxx
+          make -j"$(sysctl -n hw.ncpu)"
+          echo "--- lib/ ---"; ls -la lib/
+          dylib="$(ls lib/libjemalloc.*.dylib | head -n1)"
+          echo "dylib: $dylib"
+          file "$dylib"
+          cp "$dylib" "$GITHUB_WORKSPACE/libjemalloc.dylib"
+
+      - name: Verify jemalloc replaces the allocator (zone check)
+        run: |
+          set -euo pipefail
+          cc -O2 -o zone_check macos/zone_check.c
+          base="$(./zone_check | sed 's/zone=//')"
+          echo "baseline zone: $base"
+          jem="$(DYLD_INSERT_LIBRARIES="$GITHUB_WORKSPACE/libjemalloc.dylib" MallocNanoZone=0 ./zone_check | sed 's/zone=//')"
+          echo "with-jemalloc zone: $jem"
+          if [ "$base" = "$jem" ]; then
+            echo "::error::malloc zone unchanged ($jem) - jemalloc did not replace the allocator"
+            exit 1
+          fi
+          echo "SUCCESS: allocator zone changed from '$base' to '$jem' with jemalloc inserted"
+
+      - name: Probe SIP / shell env stripping (informational)
+        run: |
+          echo "DYLD_INSERT_LIBRARIES seen by this step's shell: [${DYLD_INSERT_LIBRARIES:-<empty>}]"
+          echo "current shell: $BASH  (version ${BASH_VERSION:-?})"
+          echo "which bash: $(which bash)"
