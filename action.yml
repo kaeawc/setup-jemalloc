@@ -33,7 +33,7 @@ runs:
     - name: "Restore jemalloc"
       if: runner.os == 'Linux'
       id: cache-jemalloc
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v6
       with:
         path: /tmp/libjemalloc.so.2
         key: v7-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
@@ -82,7 +82,7 @@ runs:
         echo "ld-preload=$lib" >> "$GITHUB_OUTPUT"
 
     - name: "Save jemalloc"
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v6
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}
       with:
         path: /tmp/libjemalloc.so.2
