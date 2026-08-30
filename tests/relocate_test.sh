@@ -177,12 +177,41 @@ test_mac_atomic_replace_preserves_open_fd() {
   rm -rf "$wd"
 }
 
+# ---------------------------------------------------------------------------
+# EC6 — an explicitly set SUDO is honored as a command prefix. (The unset ->
+#       auto-detect root/no-sudo path is exercised by the container CI jobs,
+#       which run as root without sudo.)
+# ---------------------------------------------------------------------------
+test_sudo_prefix_is_used() {
+  local wd src dest marker stub
+  wd="$(new_workdir)"
+  src="$wd/src.so"
+  dest="$wd/lib/libjemalloc.so.2"
+  marker="$wd/sudo_called"
+  mkdir -p "$wd/lib"
+  printf 'NEW' > "$src"
+
+  # A fake "sudo": records that it was invoked, then runs the real command.
+  stub="$wd/fakesudo"
+  { printf '#!/usr/bin/env bash\n'; printf 'touch %q\n' "$marker"; printf 'exec "$@"\n'; } > "$stub"
+  chmod +x "$stub"
+
+  ( SUDO="$stub"; . "$LINUX_RELOCATE"; relocate_jemalloc "$src" "$dest" ) >/dev/null 2>&1
+  if [ -f "$marker" ] && cmp -s "$src" "$dest"; then
+    pass "EC6 explicit SUDO prefix is used"
+  else
+    fail "EC6 explicit SUDO prefix is used" "marker=$([ -f "$marker" ] && echo yes || echo no)"
+  fi
+  rm -rf "$wd"
+}
+
 echo "== relocate unit tests =="
 test_fresh_install
 test_idempotent_skip
 test_atomic_replace_preserves_open_fd
 test_content_updated
 test_missing_source_fails
+test_sudo_prefix_is_used
 test_mac_atomic_replace_preserves_open_fd
 
 echo ""

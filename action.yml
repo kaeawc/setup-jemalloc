@@ -15,7 +15,7 @@ inputs:
 outputs:
   cache-hit:
     description: "Whether the jemalloc library was restored from cache ('true'/'false'; empty on non-Linux runners)."
-    value: ${{ steps.cache-jemalloc.outputs.cache-hit }}
+    value: ${{ steps.config.outputs.cache-hit }}
   library-path:
     description: "Absolute path to the installed libjemalloc.so.2 (empty on non-Linux runners)."
     value: ${{ steps.config.outputs.library-path }}
@@ -36,7 +36,7 @@ runs:
       uses: actions/cache/restore@v6
       with:
         path: /tmp/libjemalloc.so.2
-        key: v7-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
+        key: v8-${{ runner.os }}-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
 
     - name: "Relocate jemalloc to expected directory"
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit == 'true' }}
@@ -67,7 +67,9 @@ runs:
         # --with-huge-page-size=$(awk '/Hugepagesize:/ {print $2/1024 "MB"}' /proc/meminfo)
         ./configure
         make -j"$(nproc)"
-        sudo make install
+        # Auto-detect sudo: distro containers run as root, often without sudo.
+        if [ "$(id -u)" = "0" ] || ! command -v sudo >/dev/null 2>&1; then SUDO=""; else SUDO="sudo"; fi
+        $SUDO make install
         # Stage the built library for the cache-save step below.
         cp /usr/local/lib/libjemalloc.so.2 /tmp/
 
@@ -80,13 +82,20 @@ runs:
         echo "LD_PRELOAD=$lib" >> "$GITHUB_ENV"
         echo "library-path=$lib" >> "$GITHUB_OUTPUT"
         echo "ld-preload=$lib" >> "$GITHUB_OUTPUT"
+        # Normalize cache-hit to a definite true/false (the restore step leaves
+        # it empty on a miss with no restore-keys).
+        if [ "${{ steps.cache-jemalloc.outputs.cache-hit }}" = "true" ]; then
+          echo "cache-hit=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "cache-hit=false" >> "$GITHUB_OUTPUT"
+        fi
 
     - name: "Save jemalloc"
       uses: actions/cache/save@v6
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}
       with:
         path: /tmp/libjemalloc.so.2
-        key: v7-${{ runner.os }}-jemalloc-${{ inputs.jemalloc-version }}
+        key: v8-${{ runner.os }}-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
 
     - name: "Remove download directory"
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}
