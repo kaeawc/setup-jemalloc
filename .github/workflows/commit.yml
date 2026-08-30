@@ -223,23 +223,22 @@ jobs:
           echo "--- exports: malloc / mallctl present? ---"
           nm -gU "$dylib" | grep -E " _(malloc|mallctl|free)$" | head
 
-      - name: Probe jemalloc takeover mechanisms
+      - name: Probe whether jemalloc actually serves malloc
         run: |
           set -uo pipefail
           cc -O2 -o zone_check macos/zone_check.c
           dylib="$GITHUB_WORKSPACE/libjemalloc.dylib"
-          echo "===== baseline (no insert) ====="
-          ./zone_check
-          echo "===== insert + MallocNanoZone=0 (zone mechanism) ====="
-          DYLD_INSERT_LIBRARIES="$dylib" MallocNanoZone=0 ./zone_check
-          echo "===== insert + flat namespace + MallocNanoZone=0 (interposition) ====="
-          out="$(DYLD_INSERT_LIBRARIES="$dylib" DYLD_FORCE_FLAT_NAMESPACE=1 MallocNanoZone=0 ./zone_check)"
-          echo "$out"
-          echo "== decision =="
-          ver="$(printf '%s\n' "$out" | sed -n 's/^jemalloc_version=//p')"
-          if [ -n "$ver" ] && [ "$ver" != "absent" ] && [ "$ver" != "mallctl-present-but-failed" ]; then
-            echo "SUCCESS: jemalloc ($ver) is live in the wrapped process via flat-namespace interposition"
+          served=no
+          for label in "MallocNanoZone=0" "DYLD_FORCE_FLAT_NAMESPACE=1 MallocNanoZone=0"; do
+            echo "===== insert + $label ====="
+            out="$(env DYLD_INSERT_LIBRARIES="$dylib" $label ./zone_check)"
+            echo "$out"
+            if printf '%s\n' "$out" | grep -q '^served_by_jemalloc=yes$'; then served=yes; fi
+          done
+          echo "== decision: served_by_jemalloc across mechanisms = $served =="
+          if [ "$served" = "yes" ]; then
+            echo "SUCCESS: jemalloc genuinely serves the process's malloc on ${{ matrix.runner }}"
           else
-            echo "::error::jemalloc did not take over the allocator (version=$ver)"
+            echo "::error::jemalloc is loaded but does NOT serve malloc on ${{ matrix.runner }} (transparent replacement not functional)"
             exit 1
           fi
