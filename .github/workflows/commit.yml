@@ -159,3 +159,60 @@ jobs:
         run: |
           echo "distro_matrix result: ${{ needs.distro_matrix.result }}"
           [ "${{ needs.distro_matrix.result }}" = "success" ] || { echo "one or more distro/arch legs failed"; exit 1; }
+
+  # Phase 1 (issue #28): prove jemalloc builds into a loadable DLL on Windows
+  # and validate it (real jemalloc exports + allocate/free smoke test). This is
+  # the foundation for the Detours-injection launcher; it is not yet wired into
+  # the action, and is not a required check.
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-make
+            make
+            autoconf
+            binutils
+            curl
+            tar
+            bzip2
+
+      - name: Build jemalloc (mingw64)
+        run: |
+          set -euo pipefail
+          curl -fLo jemalloc.tar.bz2 https://github.com/jemalloc/jemalloc/releases/download/5.3.0/jemalloc-5.3.0.tar.bz2
+          # Reuse the same integrity check as the Linux path (issue #13).
+          bash scripts/linux/checksums.sh jemalloc.tar.bz2 5.3.0 ""
+          tar xf jemalloc.tar.bz2
+          cd jemalloc-5.3.0
+          ./configure --disable-cxx
+          make -j"$(nproc)"
+          echo "--- lib/ contents ---"
+          ls -la lib/
+
+      - name: Validate jemalloc DLL
+        run: |
+          set -euo pipefail
+          cd jemalloc-5.3.0
+          dll="$(ls lib/*.dll 2>/dev/null | head -n1 || true)"
+          if [ -z "$dll" ]; then
+            echo "::error::no jemalloc DLL was produced by the mingw build"
+            ls -la lib/
+            exit 1
+          fi
+          echo "Built DLL: $dll"
+          echo "--- jemalloc allocation exports ---"
+          objdump -p "$dll" | grep -iE "\b(je_)?(malloc|free|calloc|realloc)\b" | head -n 20
+          cp "$dll" ../libjemalloc.dll
+          cd ..
+          gcc windows/smoke.c -o smoke.exe
+          ./smoke.exe libjemalloc.dll
