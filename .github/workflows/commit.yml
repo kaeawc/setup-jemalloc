@@ -135,7 +135,20 @@ jobs:
           echo $! > background_process_without_jemalloc.pid
 
       - name: Run jemalloc action
+        id: jemalloc
         uses: ./
+
+      - name: Assert action outputs are populated
+        run: |
+          echo "cache-hit=${{ steps.jemalloc.outputs.cache-hit }}"
+          echo "library-path=${{ steps.jemalloc.outputs.library-path }}"
+          echo "ld-preload=${{ steps.jemalloc.outputs.ld-preload }}"
+          test "${{ steps.jemalloc.outputs.library-path }}" = "/usr/local/lib/libjemalloc.so.2"
+          test "${{ steps.jemalloc.outputs.ld-preload }}" = "/usr/local/lib/libjemalloc.so.2"
+          case "${{ steps.jemalloc.outputs.cache-hit }}" in
+            true|false) ;;
+            *) echo "cache-hit should be true or false" >&2; exit 1 ;;
+          esac
 
       - name: Start Background Process with Infinite Loop
         run: |
