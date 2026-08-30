@@ -1,6 +1,6 @@
 # action.yml
 name: "setup-jemalloc"
-description: "Download, build, and cache jemalloc on Linux (transparent LD_PRELOAD) and Windows (Detours-injected jemalloc-run launcher). macOS is unsupported."
+description: "Download, build, and cache jemalloc on Linux (transparent LD_PRELOAD), macOS (dyld interposer via DYLD_INSERT_LIBRARIES), and Windows (Detours-injected jemalloc-run launcher)."
 author: "Jason Pearson"
 inputs:
   jemalloc-version:
@@ -15,16 +15,19 @@ inputs:
 outputs:
   cache-hit:
     description: "Whether the jemalloc library was restored from cache ('true'/'false'; empty on unsupported runners)."
-    value: ${{ steps.config.outputs.cache-hit || steps.config-win.outputs.cache-hit }}
+    value: ${{ steps.config.outputs.cache-hit || steps.config-win.outputs.cache-hit || steps.config-mac.outputs.cache-hit }}
   library-path:
-    description: "Absolute path to the installed jemalloc library (libjemalloc.so.2 on Linux, jemalloc.dll on Windows; empty on unsupported runners)."
-    value: ${{ steps.config.outputs.library-path || steps.config-win.outputs.library-path }}
+    description: "Absolute path to the built jemalloc library (libjemalloc.so.2 on Linux, jemalloc.dll on Windows, libjemalloc.2.dylib on macOS; empty on unsupported runners)."
+    value: ${{ steps.config.outputs.library-path || steps.config-win.outputs.library-path || steps.config-mac.outputs.library-path }}
   ld-preload:
     description: "The LD_PRELOAD value the action set (Linux only; empty elsewhere)."
     value: ${{ steps.config.outputs.ld-preload }}
   jemalloc-run:
     description: "Windows only: path to jemalloc-run.exe, the launcher that runs a command with jemalloc injected (there is no transparent preload on Windows). Empty on other OSes."
     value: ${{ steps.config-win.outputs.jemalloc-run }}
+  interpose-dylib:
+    description: "macOS only: path to the jemalloc dyld interposer dylib. The action sets DYLD_INSERT_LIBRARIES to it; use this to insert jemalloc explicitly (e.g. when SIP strips DYLD_* from your shell). Empty on other OSes."
+    value: ${{ steps.config-mac.outputs.interpose-dylib }}
 
 # Linux uses transparent LD_PRELOAD; Windows has no preload equivalent, so it
 # builds a Detours-based launcher (jemalloc-run.exe) that injects jemalloc into
@@ -240,6 +243,77 @@ runs:
         } else {
           Add-Content -Path $env:GITHUB_OUTPUT -Value "cache-hit=false"
         }
+
+    # -------------------- macOS (issue #32) --------------------
+    # DYLD-inserting jemalloc alone does NOT replace malloc on modern macOS, so
+    # build jemalloc + a dyld interposer dylib (macos/jemalloc_interpose.c) that
+    # redirects the CRT allocator to jemalloc's je_*, and insert THAT via
+    # DYLD_INSERT_LIBRARIES. The bundle is relocatable (interposer -> jemalloc
+    # via @loader_path) and cached.
+    - name: "Restore jemalloc (macOS)"
+      if: runner.os == 'macOS'
+      id: cache-jemalloc-mac
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ runner.temp }}/jemalloc-dist
+        key: v9-macOS-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
+
+    - name: "Build jemalloc + interposer (macOS)"
+      if: ${{ runner.os == 'macOS' && steps.cache-jemalloc-mac.outputs.cache-hit != 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        dist="$RUNNER_TEMP/jemalloc-dist"
+        action="$GITHUB_ACTION_PATH"
+        mkdir -p "$dist"
+        curl -fLo jemalloc.tar.bz2 https://github.com/jemalloc/jemalloc/releases/download/${{ inputs.jemalloc-version }}/jemalloc-${{ inputs.jemalloc-version }}.tar.bz2
+        bash "$action/scripts/linux/checksums.sh" jemalloc.tar.bz2 "${{ inputs.jemalloc-version }}" "${{ inputs.jemalloc-sha256 }}"
+        tar xf jemalloc.tar.bz2
+        cd jemalloc-${{ inputs.jemalloc-version }}
+        ./configure --disable-cxx
+        make -j"$(sysctl -n hw.ncpu)"
+        libdir="$PWD/lib"
+        cd ..
+        cp "$libdir"/libjemalloc.2.dylib "$dist/"
+        install_name_tool -id @rpath/libjemalloc.2.dylib "$dist/libjemalloc.2.dylib"
+        cc -O2 -dynamiclib "$action/macos/jemalloc_interpose.c" -o "$dist/jemalloc_interpose.dylib" \
+           -L "$libdir" -ljemalloc -Wl,-rpath,@loader_path
+        dep="$(otool -L "$dist/jemalloc_interpose.dylib" | awk '/libjemalloc\.2\.dylib/{print $1; exit}')"
+        install_name_tool -change "$dep" @loader_path/libjemalloc.2.dylib "$dist/jemalloc_interpose.dylib"
+        otool -L "$dist/jemalloc_interpose.dylib"
+        rm -rf jemalloc-${{ inputs.jemalloc-version }} jemalloc.tar.bz2
+
+    - name: "Save jemalloc (macOS)"
+      if: ${{ runner.os == 'macOS' && steps.cache-jemalloc-mac.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ runner.temp }}/jemalloc-dist
+        key: v9-macOS-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
+
+    - name: "Configure DYLD_INSERT_LIBRARIES (macOS)"
+      if: runner.os == 'macOS'
+      id: config-mac
+      shell: bash
+      run: |
+        dist="$RUNNER_TEMP/jemalloc-dist"
+        interposer="$dist/jemalloc_interpose.dylib"
+        # Best-effort transparent insertion (survives to non-restricted child
+        # processes; SIP strips it for Apple-protected binaries and possibly the
+        # shell itself - hence also expose the path as an output to insert
+        # explicitly).
+        {
+          echo "DYLD_INSERT_LIBRARIES=$interposer"
+          echo "MallocNanoZone=0"
+        } >> "$GITHUB_ENV"
+        {
+          echo "interpose-dylib=$interposer"
+          echo "library-path=$dist/libjemalloc.2.dylib"
+        } >> "$GITHUB_OUTPUT"
+        if [ "${{ steps.cache-jemalloc-mac.outputs.cache-hit }}" = "true" ]; then
+          echo "cache-hit=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "cache-hit=false" >> "$GITHUB_OUTPUT"
+        fi
 
 branding:
   icon: "cpu"

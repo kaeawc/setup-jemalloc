@@ -79,9 +79,43 @@ child process's C runtime allocator to jemalloc. Notes and limitations:
   `windows-latest` has Visual Studio, and the action installs MSYS2/mingw for
   the jemalloc build itself.
 
+## macOS
+
+On modern macOS, `DYLD_INSERT_LIBRARIES`'ing jemalloc **alone does not replace
+the allocator** (neither jemalloc's malloc-zone override nor flat-namespace
+symbol interposition routes `malloc` to jemalloc — verified on `macos-14`). The
+action instead builds a small **dyld interposer** dylib that redirects the C
+allocator (`malloc`/`free`/`calloc`/`realloc`/`malloc_size`) to jemalloc's
+`je_*`, and inserts *that* via `DYLD_INSERT_LIBRARIES`.
+
+The action sets `DYLD_INSERT_LIBRARIES` (and `MallocNanoZone=0`) for you, and
+also exposes the interposer path as the `interpose-dylib` output:
+
+```yaml
+    - name: Set up jemalloc
+      id: jemalloc
+      uses: kaeawc/setup-jemalloc@v0.0.6
+
+    # Transparent for later steps' own (non-restricted) processes. If your
+    # shell strips DYLD_* (see below), insert it explicitly for your workload:
+    - name: Run with jemalloc
+      run: |
+        DYLD_INSERT_LIBRARIES="${{ steps.jemalloc.outputs.interpose-dylib }}" ./my-workload
+```
+
+**Limitations (System Integrity Protection):** macOS strips `DYLD_*` from the
+environment when launching Apple-protected binaries (`/bin/*`, `/usr/bin/*`,
+hardened runtime), so jemalloc **cannot** be inserted into those — only into
+non-restricted binaries (your own builds, Homebrew binaries). Depending on the
+runner's default shell, the transparently-set `DYLD_INSERT_LIBRARIES` may not
+survive into a step, which is why the `interpose-dylib` output is provided to
+insert it explicitly. arm64 (Apple silicon) and x64 are both supported;
+regular `arm64` dylibs inject fine (no `arm64e` needed).
+
 ## Unsupported Platforms
 
-- `macos`: Requires jemalloc to be built with arm64e target architecture for M1/M2/M3.
+_None — Linux, macOS, and Windows are all supported (with the platform-specific
+mechanisms and caveats described above)._
 
 ## Example
 ```yaml

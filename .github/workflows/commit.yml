@@ -192,62 +192,41 @@ jobs:
           if %SERVED% LEQ 0 ( echo ERROR: jemalloc served nothing & exit /b 1 )
           echo SUCCESS: jemalloc served %SERVED% allocations for the wrapped process
 
-
-
-  # Phase 1 (issue #32): probe macOS. On modern macOS, DYLD-inserting jemalloc
-  # alone does not replace the allocator; the supported path is a dyld
-  # INTERPOSER dylib. This proves whether interposition genuinely routes the
-  # process's malloc to jemalloc (jemalloc stats.allocated grows). arm64 only
-  # for now (Intel runners are queue-starved). Not wired into the action.
+  # macOS (issue #32): exercise the WIRED action. macOS has no working
+  # transparent jemalloc preload, so the action builds a dyld interposer; here
+  # we run the action, then insert its interposer into a workload and prove
+  # jemalloc actually served that process's malloc (and it exited cleanly).
   macos:
     strategy:
       fail-fast: false
       matrix:
         include:
           - { runner: macos-14, arch: arm64 }
+          - { runner: macos-13, arch: x64 }
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
 
-      - name: Build jemalloc + interposer
-        run: |
-          set -euo pipefail
-          curl -fLo jemalloc.tar.bz2 https://github.com/jemalloc/jemalloc/releases/download/5.3.0/jemalloc-5.3.0.tar.bz2
-          bash scripts/linux/checksums.sh jemalloc.tar.bz2 5.3.0 ""
-          tar xf jemalloc.tar.bz2
-          cd jemalloc-5.3.0
-          ./configure --disable-cxx
-          make -j"$(sysctl -n hw.ncpu)"
-          sudo make install   # -> /usr/local/lib/libjemalloc.2.dylib (its install name)
-          cd ..
-          libdir="$PWD/jemalloc-5.3.0/lib"
-          ls -la "$libdir"
-          echo "--- jemalloc install name ---"; otool -D "$libdir"/libjemalloc.2.dylib || true
-          cc -O2 -dynamiclib macos/jemalloc_interpose.c -o jemalloc_interpose.dylib \
-             -L "$libdir" -ljemalloc -Wl,-rpath,"$libdir"
-          echo "--- interposer deps ---"; otool -L jemalloc_interpose.dylib
-          echo "--- __interpose section present? ---"; otool -s __DATA __interpose jemalloc_interpose.dylib || true
+      - name: Run jemalloc action
+        id: jemalloc
+        uses: ./
 
-      - name: Verify jemalloc actually serves malloc (via interposition)
+      - name: Verify jemalloc serves a wrapped process
         run: |
           set -uo pipefail
+          echo "transparent DYLD_INSERT_LIBRARIES in step env: [${DYLD_INSERT_LIBRARIES:-<empty>}]"
+          echo "interpose-dylib output: ${{ steps.jemalloc.outputs.interpose-dylib }}"
+          echo "library-path output:    ${{ steps.jemalloc.outputs.library-path }}"
+          echo "cache-hit output:       ${{ steps.jemalloc.outputs.cache-hit }}"
           cc -O2 -o zone_check macos/zone_check.c
-          echo "===== baseline (no insert) ====="
-          ./zone_check
-          echo "===== DYLD_INSERT interposer ====="
-          export JEMALLOC_INTERPOSE_STATS="$PWD/interpose_calls.txt"
-          env DYLD_INSERT_LIBRARIES="$PWD/jemalloc_interpose.dylib" DYLD_PRINT_INTERPOSING=1 ./zone_check >interpose_out.txt 2>interpose_dyld.txt
+          export JEMALLOC_INTERPOSE_STATS="$PWD/calls.txt"
+          DYLD_INSERT_LIBRARIES="${{ steps.jemalloc.outputs.interpose-dylib }}" ./zone_check
           rc=$?
-          cat interpose_out.txt
-          echo "--- dyld interposing (malloc) ---"; grep -i "interposed '_malloc'" interpose_dyld.txt || echo "(none)"
-          calls="$(cat interpose_calls.txt 2>/dev/null || echo 0)"
-          echo "wrapped process exit code: $rc ; interposed malloc calls: $calls"
-          # Authoritative: the interposer's malloc actually fired (routing to
-          # jemalloc; dyld's interposing log confirms it) AND the process exited
-          # cleanly (no mixed-allocator crash).
+          calls="$(cat calls.txt 2>/dev/null || echo 0)"
+          echo "wrapped process exit=$rc ; jemalloc-served malloc calls=$calls"
           if [ "$rc" = "0" ] && [ "${calls:-0}" -gt 0 ]; then
-            echo "SUCCESS: jemalloc served ${calls} malloc calls for the wrapped process on ${{ matrix.runner }} (clean exit)"
+            echo "SUCCESS: jemalloc served $calls malloc calls for the wrapped process on ${{ matrix.runner }}"
           else
-            echo "::error::interposition did not route malloc to jemalloc on ${{ matrix.runner }} (rc=$rc calls=$calls)"
+            echo "::error::jemalloc did not serve the wrapped process on ${{ matrix.runner }} (rc=$rc calls=$calls)"
             exit 1
           fi
