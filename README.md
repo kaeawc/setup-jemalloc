@@ -5,7 +5,40 @@ This action downloads, installs, and caches jemalloc. Subsequent workflow steps 
 
 ## Supported Platforms
 
-- `linux`
+Linux on both **x64** and **arm64**. The action builds jemalloc from source, so
+it is distro-agnostic. CI exercises it end-to-end on each push across a wide
+matrix of distros × architectures:
+
+| Distro | libc | x64 | arm64 |
+|--------|------|-----|-------|
+| Ubuntu 22.04 / 24.04 | glibc | ✅ | ✅ |
+| Debian 12 | glibc | ✅ | ✅ |
+| Fedora 40 | glibc | ✅ | ✅ |
+| Rocky Linux 9 | glibc | ✅ | ✅ |
+| openSUSE Leap 15 | glibc | ✅ | ✅ |
+| Arch Linux | glibc | ✅ | — (no official arm64 image) |
+| Alpine 3.20 | **musl** | ✅ | — (GitHub runs JS actions in Alpine only on x64) |
+
+The cache is keyed by OS, architecture, and distro/version, so a library built
+for one platform is never restored into an incompatible one.
+
+### Toolchain prerequisite
+
+Because jemalloc is built from source, the runner (or container) must have a C
+toolchain and a few utilities available **before** this action runs: `gcc`,
+`make`, `curl`, `bzip2`, `tar`, and `ca-certificates`. GitHub-hosted `ubuntu-*`
+runners already include these. In a minimal distro container, install them
+first — for example:
+
+```yaml
+    # Debian/Ubuntu
+    - run: apt-get update && apt-get install -y gcc make curl bzip2 tar ca-certificates
+    # Alpine (musl) — gcompat/libstdc++ let GitHub's node run on musl
+    - run: apk add --no-cache build-base curl bzip2 tar ca-certificates git bash gcompat libstdc++
+    - uses: kaeawc/setup-jemalloc@v0.0.6
+```
+
+`scripts/linux/verify.sh` relies only on `/proc`, so it needs no extra tools.
 
 ## Unsupported Platforms
 

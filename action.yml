@@ -30,13 +30,50 @@ runs:
   using: "composite"
   steps:
 
+    - name: "Detect platform"
+      if: runner.os == 'Linux'
+      id: platform
+      shell: bash
+      run: |
+        # Discriminate the cache by distro+version so a library built on one
+        # distro/libc (e.g. musl on Alpine, or a newer glibc) is never restored
+        # into an incompatible one. Fall back to a libc tag, then 'unknown'.
+        plat=""
+        if [ -r /etc/os-release ]; then
+          . /etc/os-release
+          plat="${ID:-}-${VERSION_ID:-}"
+        fi
+        if [ -z "$plat" ] || [ "$plat" = "-" ]; then
+          if ls /lib/ld-musl-* >/dev/null 2>&1; then plat="musl"; else plat="glibc"; fi
+        fi
+        # Sanitize to a safe cache-key segment.
+        plat="$(printf '%s' "$plat" | tr -c 'A-Za-z0-9._-' '_')"
+        echo "tag=$plat" >> "$GITHUB_OUTPUT"
+        echo "Platform cache tag: $plat"
+
+    - name: "Resolve action path"
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        # In container jobs GitHub leaves github.action_path as a host path
+        # (/home/runner/work/...) even though the work dir is mounted at /__w,
+        # so scripts referenced by that path are "not found" inside the
+        # container. Remap the runner work-dir prefix to the mount when the
+        # original path doesn't resolve; a no-op on normal (non-container) runs.
+        ap="$GITHUB_ACTION_PATH"
+        if [ ! -e "$ap/scripts/linux/checksums.sh" ] && \
+           [ -e "/__w/${ap#*/work/}/scripts/linux/checksums.sh" ]; then
+          ap="/__w/${ap#*/work/}"
+        fi
+        echo "JEMALLOC_ACTION_PATH=$ap" >> "$GITHUB_ENV"
+
     - name: "Restore jemalloc"
       if: runner.os == 'Linux'
       id: cache-jemalloc
       uses: actions/cache/restore@v6
       with:
         path: /tmp/libjemalloc.so.2
-        key: v8-${{ runner.os }}-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
+        key: v9-${{ runner.os }}-${{ runner.arch }}-${{ steps.platform.outputs.tag }}-jemalloc-${{ inputs.jemalloc-version }}
 
     - name: "Relocate jemalloc to expected directory"
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit == 'true' }}
@@ -45,7 +82,7 @@ runs:
         # Atomic, idempotent install so a second in-job invocation cannot
         # truncate an LD_PRELOAD'd library in place and crash the copy with
         # SIGSEGV (issue #5).
-        bash "${{ github.action_path }}/scripts/linux/relocate.sh" /tmp/libjemalloc.so.2 /usr/local/lib/libjemalloc.so.2
+        bash "$JEMALLOC_ACTION_PATH/scripts/linux/relocate.sh" /tmp/libjemalloc.so.2 /usr/local/lib/libjemalloc.so.2
 
     - name: "Download jemalloc"
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}
@@ -53,7 +90,7 @@ runs:
       run: |
         curl -fLs https://github.com/jemalloc/jemalloc/releases/download/${{ inputs.jemalloc-version }}/jemalloc-${{ inputs.jemalloc-version }}.tar.bz2 -o jemalloc-${{ inputs.jemalloc-version }}.tar.bz2
         # Verify the download before it is built and LD_PRELOAD'd (issue #13).
-        bash "${{ github.action_path }}/scripts/linux/checksums.sh" \
+        bash "$JEMALLOC_ACTION_PATH/scripts/linux/checksums.sh" \
           jemalloc-${{ inputs.jemalloc-version }}.tar.bz2 \
           "${{ inputs.jemalloc-version }}" \
           "${{ inputs.jemalloc-sha256 }}"
@@ -65,7 +102,11 @@ runs:
       run: |
         cd jemalloc-${{ inputs.jemalloc-version }}
         # --with-huge-page-size=$(awk '/Hugepagesize:/ {print $2/1024 "MB"}' /proc/meminfo)
-        ./configure
+        # --disable-cxx: the LD_PRELOAD malloc override doesn't need jemalloc's
+        # own operator new/delete (C++ new routes through malloc, which is
+        # replaced), and jemalloc 5.3.0's C++ shim fails to build against very
+        # new libstdc++ (e.g. GCC 15 on Arch: std::__throw_bad_alloc removed).
+        ./configure --disable-cxx
         make -j"$(nproc)"
         # Auto-detect sudo: distro containers run as root, often without sudo.
         if [ "$(id -u)" = "0" ] || ! command -v sudo >/dev/null 2>&1; then SUDO=""; else SUDO="sudo"; fi
@@ -95,7 +136,7 @@ runs:
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}
       with:
         path: /tmp/libjemalloc.so.2
-        key: v8-${{ runner.os }}-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
+        key: v9-${{ runner.os }}-${{ runner.arch }}-${{ steps.platform.outputs.tag }}-jemalloc-${{ inputs.jemalloc-version }}
 
     - name: "Remove download directory"
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}
