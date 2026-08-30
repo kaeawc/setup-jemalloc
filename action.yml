@@ -1,6 +1,6 @@
 # action.yml
 name: "setup-jemalloc"
-description: "An action to download, install, and cache jemalloc on Linux runners (macOS and Windows are currently unsupported)"
+description: "Download, build, and cache jemalloc on Linux (transparent LD_PRELOAD) and Windows (Detours-injected jemalloc-run launcher). macOS is unsupported."
 author: "Jason Pearson"
 inputs:
   jemalloc-version:
@@ -14,18 +14,23 @@ inputs:
     default: ""
 outputs:
   cache-hit:
-    description: "Whether the jemalloc library was restored from cache ('true'/'false'; empty on non-Linux runners)."
-    value: ${{ steps.config.outputs.cache-hit }}
+    description: "Whether the jemalloc library was restored from cache ('true'/'false'; empty on unsupported runners)."
+    value: ${{ steps.config.outputs.cache-hit || steps.config-win.outputs.cache-hit }}
   library-path:
-    description: "Absolute path to the installed libjemalloc.so.2 (empty on non-Linux runners)."
-    value: ${{ steps.config.outputs.library-path }}
+    description: "Absolute path to the installed jemalloc library (libjemalloc.so.2 on Linux, jemalloc.dll on Windows; empty on unsupported runners)."
+    value: ${{ steps.config.outputs.library-path || steps.config-win.outputs.library-path }}
   ld-preload:
-    description: "The LD_PRELOAD value the action set (empty on non-Linux runners)."
+    description: "The LD_PRELOAD value the action set (Linux only; empty elsewhere)."
     value: ${{ steps.config.outputs.ld-preload }}
+  jemalloc-run:
+    description: "Windows only: path to jemalloc-run.exe, the launcher that runs a command with jemalloc injected (there is no transparent preload on Windows). Empty on other OSes."
+    value: ${{ steps.config-win.outputs.jemalloc-run }}
 
-# Every step is gated on runner.os == 'Linux', so the action is a graceful
-# no-op on other runners; macOS and Windows are unsupported (see README).
-# scripts/mac/ is kept (and unit-tested) as scaffolding for future macOS work.
+# Linux uses transparent LD_PRELOAD; Windows has no preload equivalent, so it
+# builds a Detours-based launcher (jemalloc-run.exe) that injects jemalloc into
+# a wrapped command (see README + issue #28). macOS is unsupported; scripts/mac/
+# is kept (and unit-tested) as scaffolding for future macOS work. Every step is
+# gated by runner.os, so the action is a graceful no-op on unsupported runners.
 runs:
   using: "composite"
   steps:
@@ -144,6 +149,97 @@ runs:
       run: |
         rm -rf jemalloc-${{ inputs.jemalloc-version }}
         rm -f jemalloc-${{ inputs.jemalloc-version }}.tar.bz2
+
+    # -------------------- Windows (issue #28) --------------------
+    # No transparent preload on Windows: build jemalloc.dll plus a Detours-based
+    # launcher (jemalloc-run.exe) + shim that inject jemalloc into a wrapped
+    # command. The assembled bundle is cached and exposed via the jemalloc-run
+    # output and PATH.
+    - name: "Restore jemalloc (Windows)"
+      if: runner.os == 'Windows'
+      id: cache-jemalloc-win
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ runner.temp }}\jemalloc-dist
+        key: v9-Windows-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
+
+    - name: "Set up MSYS2 (Windows)"
+      if: ${{ runner.os == 'Windows' && steps.cache-jemalloc-win.outputs.cache-hit != 'true' }}
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: false
+        install: >-
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-make
+          make
+          autoconf
+          binutils
+          curl
+          tar
+          bzip2
+
+    - name: "Build jemalloc.dll (Windows)"
+      if: ${{ runner.os == 'Windows' && steps.cache-jemalloc-win.outputs.cache-hit != 'true' }}
+      shell: 'msys2 {0}'
+      run: |
+        set -euo pipefail
+        dist="$(cygpath -u "$RUNNER_TEMP")/jemalloc-dist"
+        action="$(cygpath -u "$GITHUB_ACTION_PATH")"
+        mkdir -p "$dist"
+        curl -fLo jemalloc.tar.bz2 https://github.com/jemalloc/jemalloc/releases/download/${{ inputs.jemalloc-version }}/jemalloc-${{ inputs.jemalloc-version }}.tar.bz2
+        bash "$action/scripts/linux/checksums.sh" jemalloc.tar.bz2 "${{ inputs.jemalloc-version }}" "${{ inputs.jemalloc-sha256 }}"
+        tar xf jemalloc.tar.bz2
+        cd jemalloc-${{ inputs.jemalloc-version }}
+        ./configure --disable-cxx
+        make -j"$(nproc)"
+        cp lib/jemalloc.dll "$dist/"
+        cd ..
+        for dep in $(objdump -p "$dist/jemalloc.dll" | awk '/DLL Name:/{print $3}'); do
+          [ -f "/mingw64/bin/$dep" ] && cp "/mingw64/bin/$dep" "$dist/" || true
+        done
+        rm -rf jemalloc-${{ inputs.jemalloc-version }} jemalloc.tar.bz2
+
+    - name: "Set up MSVC (Windows)"
+      if: ${{ runner.os == 'Windows' && steps.cache-jemalloc-win.outputs.cache-hit != 'true' }}
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: "Build Detours injector (Windows)"
+      if: ${{ runner.os == 'Windows' && steps.cache-jemalloc-win.outputs.cache-hit != 'true' }}
+      shell: cmd
+      run: |
+        set DIST=%RUNNER_TEMP%\jemalloc-dist
+        set DET=%RUNNER_TEMP%\Detours
+        if exist "%DET%" rmdir /s /q "%DET%"
+        git clone --depth 1 https://github.com/microsoft/Detours "%DET%" || exit /b 1
+        pushd "%DET%" && nmake || (popd & exit /b 1)
+        popd
+        cl /nologo /O2 /MD /EHsc /D_CRT_SECURE_NO_WARNINGS /I "%DET%\include" "%GITHUB_ACTION_PATH%\windows\jemalloc_run.cpp" /Fe:"%DIST%\jemalloc-run.exe" /link "%DET%\lib.X64\detours.lib" || exit /b 1
+        cl /nologo /O2 /MD /EHsc /D_CRT_SECURE_NO_WARNINGS /LD /I "%DET%\include" "%GITHUB_ACTION_PATH%\windows\jemalloc_shim.cpp" /Fe:"%DIST%\jemalloc-shim.dll" /link "%DET%\lib.X64\detours.lib" || exit /b 1
+        del "%DIST%\*.obj" "%DIST%\*.exp" "%DIST%\*.lib" 2>nul
+        dir "%DIST%"
+
+    - name: "Save jemalloc (Windows)"
+      if: ${{ runner.os == 'Windows' && steps.cache-jemalloc-win.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ runner.temp }}\jemalloc-dist
+        key: v9-Windows-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
+
+    - name: "Expose jemalloc-run (Windows)"
+      if: runner.os == 'Windows'
+      id: config-win
+      shell: pwsh
+      run: |
+        $dist = "$env:RUNNER_TEMP\jemalloc-dist"
+        Add-Content -Path $env:GITHUB_PATH -Value $dist
+        Add-Content -Path $env:GITHUB_OUTPUT -Value "jemalloc-run=$dist\jemalloc-run.exe"
+        Add-Content -Path $env:GITHUB_OUTPUT -Value "library-path=$dist\jemalloc.dll"
+        if ("${{ steps.cache-jemalloc-win.outputs.cache-hit }}" -eq "true") {
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "cache-hit=true"
+        } else {
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "cache-hit=false"
+        }
 
 branding:
   icon: "cpu"

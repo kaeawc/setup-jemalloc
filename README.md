@@ -22,6 +22,9 @@ matrix of distros × architectures:
 The cache is keyed by OS, architecture, and distro/version, so a library built
 for one platform is never restored into an incompatible one.
 
+**Windows** is also supported, but through a different mechanism (a wrapped
+launcher rather than transparent preload) — see the [Windows](#windows) section.
+
 ### Toolchain prerequisite
 
 Because jemalloc is built from source, the runner (or container) must have a C
@@ -40,10 +43,45 @@ first — for example:
 
 `scripts/linux/verify.sh` relies only on `/proc`, so it needs no extra tools.
 
+## Windows
+
+Windows has **no transparent allocator-preload mechanism** (no `LD_PRELOAD`
+equivalent), so jemalloc cannot be injected into every step automatically the
+way it is on Linux. Instead, the action builds `jemalloc.dll` plus a
+**Detours-based launcher**, `jemalloc-run.exe`, and you **wrap** the command
+whose allocations you want served by jemalloc:
+
+```yaml
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up jemalloc
+        id: jemalloc
+        uses: kaeawc/setup-jemalloc@v0.0.6
+
+      # Wrap your workload; its malloc/free/calloc/realloc are served by jemalloc.
+      - name: Run with jemalloc
+        run: |
+          & "${{ steps.jemalloc.outputs.jemalloc-run }}" my-app.exe --args
+```
+
+`jemalloc-run.exe` injects a shim (via Microsoft Detours) that redirects the
+child process's C runtime allocator to jemalloc. Notes and limitations:
+
+- Only processes that use the **shared** Universal CRT (compiled `/MD`) are
+  redirected; statically-linked-CRT binaries (`/MT`) are not.
+- Only the wrapped process (and its allocations) are affected — not unrelated
+  steps.
+- The action needs a build toolchain on the runner; GitHub-hosted
+  `windows-latest` has Visual Studio, and the action installs MSYS2/mingw for
+  the jemalloc build itself.
+
 ## Unsupported Platforms
 
 - `macos`: Requires jemalloc to be built with arm64e target architecture for M1/M2/M3.
-- `windows` 
 
 ## Example
 ```yaml
