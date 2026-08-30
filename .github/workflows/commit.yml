@@ -108,8 +108,9 @@ jobs:
           case "${{ steps.jemalloc.outputs.cache-hit }}" in true|false) ;; *) echo "bad cache-hit" >&2; exit 1 ;; esac
           echo "--- diag: installed library ---"
           ls -la /usr/local/lib/libjemalloc.so.2 2>&1 || echo "MISSING at /usr/local/lib"
-          head -c 4 /usr/local/lib/libjemalloc.so.2 2>/dev/null | od -An -tx1 || true
-          cat /etc/ld.so.conf.d/*.conf 2>/dev/null | grep -v '^#' || true
+          echo "-- ldd on the lib --"; env -u LD_PRELOAD ldd /usr/local/lib/libjemalloc.so.2 2>&1 | head || true
+          echo "-- explicit preload of /bin/true --"; LD_PRELOAD=/usr/local/lib/libjemalloc.so.2 /bin/true; echo "preload rc=$?"
+          echo "-- ldconfig -p jemalloc --"; env -u LD_PRELOAD ldconfig -p 2>/dev/null | grep -i jemalloc || echo "(not in ldconfig cache)"
           echo "LD_PRELOAD=$LD_PRELOAD"
           nohup bash -c 'while true; do sleep 10; done' > /dev/null 2>&1 < /dev/null &
           echo $! > pid1
