@@ -38,9 +38,10 @@ jobs:
             libxrandr-dev libxcursor-dev libgif-dev libavutil-dev libpulse-dev \
             libavformat-dev libavcodec-dev libswresample-dev libdbus-1-dev \
             libxkbfile-dev libssl-dev libstdc++-12-dev
-          # Prefer a specific clang if available; fall back to the default.
-          sudo apt-get install -y clang-15 || sudo apt-get install -y clang || true
-          clang --version || clang-15 --version || true
+          # Darling documents clang-15; the runner's default clang/gcc trips
+          # objc4's "mismatch in debug-ness macros" check, so pin clang-15.
+          sudo apt-get install -y clang-15
+          clang-15 --version
 
       - name: Clone Darling
         run: |
@@ -54,7 +55,8 @@ jobs:
           set -euxo pipefail
           cd darling
           mkdir -p build && cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release
+          cmake .. -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=clang-15 -DCMAKE_CXX_COMPILER=clang++-15
           make -j"$(nproc)"
           sudo make install
           df -h /
