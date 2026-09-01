@@ -57,8 +57,11 @@ jobs:
           set -euxo pipefail
           cd darling
           mkdir -p build && cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=clang-15 -DCMAKE_CXX_COMPILER=clang++-15
+          # No -DCMAKE_BUILD_TYPE=Release: it defines NDEBUG (DEBUG=0) while
+          # objc4's OBJC_IS_DEBUG_BUILD stays 1, tripping its "mismatch in
+          # debug-ness macros" #error. Darling's documented build is plain
+          # `cmake ..` (default config), just with clang pinned.
+          cmake .. -DCMAKE_C_COMPILER=clang-15 -DCMAKE_CXX_COMPILER=clang++-15
           make -j"$(nproc)"
           sudo make install
           df -h /
