@@ -1,103 +1,45 @@
-name: "Darling (experimental Darwin path)"
+name: Darling
 
-# Experimental (issue #34): exercise setup-jemalloc's Darwin code path on a
-# Linux runner via Darling. Darling has no prebuilt packages, so this builds it
-# from source (heavy) — hence it is opt-in via pull_request while iterating and
-# will move to workflow_dispatch-only before merge. NOT part of the commit gate.
 on:
-  pull_request:
   workflow_dispatch:
+  push:
+    branches: ['*']
 
+permissions:
+  contents: read
+
+# Experimental (issue #34): exercise setup-jemalloc's macOS/Darwin path on a
+# Linux runner using Darling (https://darlinghq.org), a macOS translation layer.
+# There is no Xcode project here — the "macOS build" is jemalloc's Darwin
+# ./configure && make plus the dyld interposer — so Darling's job is to build
+# and run those Mach-O artifacts on Linux. Install pinned prebuilt debs (no
+# from-source build, no kernel module: Darling is userspace-only since 2022).
+# The debs target Ubuntu 24.04 (noble) amd64; keep the runner pinned to match.
 jobs:
-  darling:
-    # Darling documents Ubuntu 22.04; on 24.04 clang-15 can't find a matching
-    # libstdc++ and objc4 fails with "mismatch in debug-ness macros".
-    runs-on: ubuntu-22.04
-    timeout-minutes: 350
+  darling-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    continue-on-error: true   # experimental: never blocks; results in the summary
+    env:
+      DARLING_DEBS_URL: https://github.com/darlinghq/darling/releases/download/v0.1.20260608/debs_20260608.zip
+      DARLING_DEBS_SHA256: 27469ef3932da2e91dd7fb34b70e3628a3e54b7af9fb5480051f44af35eca1fd
     steps:
       - uses: actions/checkout@v4
-        with:
-          path: repo
 
-      - name: Free up disk space
+      - name: Install Darling (pinned prebuilt debs)
         run: |
-          set -x
-          df -h /
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
-                      /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" || true
-          sudo docker image prune --all --force || true
-          df -h /
-
-      - name: Install Darling build dependencies
-        run: |
-          set -euxo pipefail
+          curl -fsSL --retry 3 -o /tmp/darling-debs.zip "$DARLING_DEBS_URL"
+          echo "$DARLING_DEBS_SHA256  /tmp/darling-debs.zip" | sha256sum -c -
+          unzip -q /tmp/darling-debs.zip -d /tmp/darling-debs
           sudo apt-get update
+          # Minimal CLI dependency closure (the full metapackage drags in GUI,
+          # Python 2, Ruby, Perl components we don't need).
           sudo apt-get install -y \
-            cmake automake bison flex libfuse-dev libudev-dev pkg-config \
-            libc6-dev-i386 gcc-multilib libcairo2-dev libgl1-mesa-dev curl \
-            libglu1-mesa-dev libtiff-dev libfreetype-dev git git-lfs libelf-dev \
-            libxml2-dev libegl1-mesa-dev libfontconfig1-dev libbsd-dev \
-            libxrandr-dev libxcursor-dev libgif-dev libavutil-dev libpulse-dev \
-            libavformat-dev libavcodec-dev libswresample-dev libdbus-1-dev \
-            libxkbfile-dev libssl-dev libstdc++-12-dev
-          # Darling documents clang-15; the runner's default clang/gcc trips
-          # objc4's "mismatch in debug-ness macros" check, so pin clang-15.
-          sudo apt-get install -y clang-15
-          clang-15 --version
+            /tmp/darling-debs/debs_*/darling-core_*.deb \
+            /tmp/darling-debs/debs_*/darling-system_*.deb \
+            /tmp/darling-debs/debs_*/darling-cli-gui-common_*.deb \
+            /tmp/darling-debs/debs_*/darling-cli-python2-common_*.deb \
+            /tmp/darling-debs/debs_*/darling-cli_*.deb
 
-      - name: Clone Darling
-        run: |
-          set -euxo pipefail
-          git clone --depth 1 --recursive https://github.com/darlinghq/darling.git
-          du -sh darling || true
-
-      - name: Build & install Darling
-        id: build
-        run: |
-          set -euxo pipefail
-          cd darling
-          mkdir -p build && cd build
-          # No -DCMAKE_BUILD_TYPE=Release: it defines NDEBUG (DEBUG=0) while
-          # objc4's OBJC_IS_DEBUG_BUILD stays 1, tripping its "mismatch in
-          # debug-ness macros" #error. Darling's documented build is plain
-          # `cmake ..` (default config), just with clang pinned.
-          cmake .. -DCMAKE_C_COMPILER=clang-15 -DCMAKE_CXX_COMPILER=clang++-15
-          make -j"$(nproc)"
-          sudo make install
-          df -h /
-
-      - name: "Smoke: Darwin userland (sw_vers, uname)"
-        id: smoke
-        run: |
-          set -uxo pipefail
-          darling shell sw_vers || true
-          darling shell uname -a || true
-          darling shell "echo hello from Darwin && bash --version | head -1" || true
-
-      # ---- Best-effort Darwin code-path checks (do not fail the job) ----
-      - name: "Darwin path: run scripts/mac helpers under Darling"
-        continue-on-error: true
-        working-directory: repo
-        run: |
-          set -uxo pipefail
-          darling shell "bash scripts/mac/verify.sh 99999 || echo verify.sh-exit-\$?"
-          darling shell "bash -n scripts/mac/relocate.sh && echo 'relocate.sh parses under Darwin bash'"
-
-      - name: "Darwin path: build jemalloc with Darling clang"
-        continue-on-error: true
-        working-directory: repo
-        run: |
-          set -uxo pipefail
-          curl -fLo jemalloc.tar.bz2 https://github.com/jemalloc/jemalloc/releases/download/5.3.0/jemalloc-5.3.0.tar.bz2
-          tar xf jemalloc.tar.bz2
-          cd jemalloc-5.3.0
-          darling shell "./configure --disable-cxx && make -j2 && ls -la lib/ && file lib/libjemalloc.*.dylib" \
-            || echo 'jemalloc Darwin build under Darling did not complete'
-
-      - name: "Attempt xcodebuild (expected: unavailable)"
-        continue-on-error: true
-        run: |
-          set -uxo pipefail
-          echo 'xcodebuild is expected to be UNAVAILABLE (Darling ships no Xcode/SDK).'
-          darling shell "xcode-select -p || true"
-          darling shell "xcodebuild -version" || echo 'as expected: xcodebuild is not available under Darling'
+      - name: Exercise the Darwin path under Darling
+        run: ./scripts/darling-ci.sh
