@@ -10,7 +10,9 @@ on:
 
 jobs:
   darling:
-    runs-on: ubuntu-latest
+    # Darling documents Ubuntu 22.04; on 24.04 clang-15 can't find a matching
+    # libstdc++ and objc4 fails with "mismatch in debug-ness macros".
+    runs-on: ubuntu-22.04
     timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
