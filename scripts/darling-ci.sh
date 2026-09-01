@@ -92,12 +92,17 @@ fi
 #        C toolchain. (Reported, never fatal.)
 # ---------------------------------------------------------------------------
 if [ -n "$have_cc" ] && [ -n "$have_make" ]; then
+  # Download + verify on the HOST (Darling ships no shasum/sha256sum), then
+  # build the already-verified tarball under Darling. The cwd maps into the
+  # prefix, so the extracted tree is visible to both.
+  log "Downloading + verifying jemalloc on the host"
+  curl -fLo jemalloc.tar.bz2 "https://github.com/jemalloc/jemalloc/releases/download/$JEMALLOC_VERSION/jemalloc-$JEMALLOC_VERSION.tar.bz2"
+  bash scripts/linux/checksums.sh jemalloc.tar.bz2 "$JEMALLOC_VERSION" ''
+
   log "Building jemalloc under Darling ($have_cc)"
   build_ok=""
   if indarling "
     set -e
-    curl -fLo jemalloc.tar.bz2 https://github.com/jemalloc/jemalloc/releases/download/$JEMALLOC_VERSION/jemalloc-$JEMALLOC_VERSION.tar.bz2
-    bash scripts/linux/checksums.sh jemalloc.tar.bz2 $JEMALLOC_VERSION ''
     tar xf jemalloc.tar.bz2
     cd jemalloc-$JEMALLOC_VERSION
     ./configure --disable-cxx
