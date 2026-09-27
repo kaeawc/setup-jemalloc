@@ -38,7 +38,7 @@ first — for example:
     - run: apt-get update && apt-get install -y gcc make curl bzip2 tar ca-certificates
     # Alpine (musl) — gcompat/libstdc++ let GitHub's node run on musl
     - run: apk add --no-cache build-base curl bzip2 tar ca-certificates git bash gcompat libstdc++
-    - uses: kaeawc/setup-jemalloc@v0.0.6
+    - uses: kaeawc/setup-jemalloc@v0.1.0
 ```
 
 `scripts/linux/verify.sh` relies only on `/proc`, so it needs no extra tools.
@@ -60,7 +60,7 @@ jobs:
 
       - name: Set up jemalloc
         id: jemalloc
-        uses: kaeawc/setup-jemalloc@v0.0.6
+        uses: kaeawc/setup-jemalloc@v0.1.0
 
       # Wrap your workload; its malloc/free/calloc/realloc are served by jemalloc.
       - name: Run with jemalloc
@@ -97,7 +97,7 @@ whose allocations you want served by jemalloc:
 ```yaml
     - name: Set up jemalloc
       id: jemalloc
-      uses: kaeawc/setup-jemalloc@v0.0.6
+      uses: kaeawc/setup-jemalloc@v0.1.0
 
     - name: Run with jemalloc
       run: |
@@ -126,7 +126,7 @@ jobs:
     # Add typical environment setup steps for node/java/python etc before jemalloc
     
     - name: Set up jemalloc
-      uses: kaeawc/setup-jemalloc@v0.0.6
+      uses: kaeawc/setup-jemalloc@v0.1.0
 
     # Any processes run (bash, java, golang, python, etc) will benefit from using jemalloc automatically.
     - name: Build Application
@@ -156,7 +156,7 @@ already preloaded into running processes.
 ```yaml
     - name: Set up jemalloc
       id: jemalloc
-      uses: kaeawc/setup-jemalloc@v0.0.6
+      uses: kaeawc/setup-jemalloc@v0.1.0
 
     - name: Use the outputs
       run: |
