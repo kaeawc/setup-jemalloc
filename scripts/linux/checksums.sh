@@ -15,6 +15,8 @@
 # known_sha256 <version> -> prints the known-good sha256, or empty if unknown.
 known_sha256() {
   case "$1" in
+    5.4.0) echo "200776fac271093e7c2f21edd6d62657ecd2be578d9328633f2a86bfa6ef4f1d" ;;
+    5.3.1) echo "3826bc80232f22ed5c4662f3034f799ca316e819103bdc7bb99018a421706f92" ;;
     5.3.0) echo "2db82d1e7119df3e71b7640219b6dfe84789bc0537983c3b7ac4f7189aecfeaa" ;;
     *)     echo "" ;;
   esac

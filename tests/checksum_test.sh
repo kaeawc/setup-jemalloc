@@ -41,17 +41,19 @@ sha_of_content() {
   rm -rf "$wd"
 }
 
-# CV1 — the default version (5.3.0) has a well-formed baked-in checksum wired.
-# We don't duplicate the literal here (that would only test a copy-paste); the
-# enforcement of that value against real bytes is covered by CV2, and the
-# match/mismatch mechanics by CV4/CV5.
+# CV1 — the action's default jemalloc-version has a well-formed baked-in
+# checksum wired. The default is read from action.yml so a version bump that
+# forgets to add its checksum fails here. We don't duplicate the literal (that
+# would only test a copy-paste); the enforcement of that value against real
+# bytes is covered by CV2, and the match/mismatch mechanics by CV4/CV5.
 test_known_table_value() {
-  local got
-  got="$( . "$CHECKSUMS"; known_sha256 5.3.0 )"
-  if printf '%s' "$got" | grep -Eq '^[0-9a-f]{64}$'; then
-    pass "CV1 default version has a well-formed checksum wired"
+  local default got
+  default="$(awk '/^  jemalloc-version:/ {f=1} f && /^    default:/ {gsub(/"/, "", $2); print $2; exit}' "$REPO_ROOT/action.yml")"
+  got="$( . "$CHECKSUMS"; known_sha256 "$default" )"
+  if [ -n "$default" ] && printf '%s' "$got" | grep -Eq '^[0-9a-f]{64}$'; then
+    pass "CV1 default version ($default) has a well-formed checksum wired"
   else
-    fail "CV1 default version has a well-formed checksum wired" "got '$got'"
+    fail "CV1 default version has a well-formed checksum wired" "default='$default' got '$got'"
   fi
 }
 

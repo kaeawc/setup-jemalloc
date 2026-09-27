@@ -143,7 +143,7 @@ already preloaded into running processes.
 ## Inputs
 | Argument | Description | Default | Required |
 |----------|-------------|---------|---------|
-| jemalloc-version | The version of jemalloc to be used | `5.3.0` | no |
+| jemalloc-version | The version of jemalloc to be used | `5.4.0` | no |
 | jemalloc-sha256 | Optional SHA-256 to verify the downloaded tarball against. Overrides the built-in checksum and lets you pin a version that has no baked-in value. When empty and the version is unknown, the integrity check is skipped with a warning. | `""` | no |
 
 ## Outputs
