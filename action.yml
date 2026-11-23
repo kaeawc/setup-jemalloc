@@ -78,7 +78,7 @@ runs:
     - name: "Restore jemalloc"
       if: runner.os == 'Linux'
       id: cache-jemalloc
-      uses: actions/cache/restore@v6
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: /tmp/libjemalloc.so.2
         key: v9-${{ runner.os }}-${{ runner.arch }}-${{ steps.platform.outputs.tag }}-jemalloc-${{ inputs.jemalloc-version }}
@@ -141,7 +141,7 @@ runs:
         fi
 
     - name: "Save jemalloc"
-      uses: actions/cache/save@v6
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       if: ${{ runner.os == 'Linux' && steps.cache-jemalloc.outputs.cache-hit != 'true' }}
       with:
         path: /tmp/libjemalloc.so.2
@@ -162,14 +162,14 @@ runs:
     - name: "Restore jemalloc (Windows)"
       if: runner.os == 'Windows'
       id: cache-jemalloc-win
-      uses: actions/cache/restore@v6
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ runner.temp }}\jemalloc-dist
         key: v9-Windows-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
 
     - name: "Set up MSYS2 (Windows)"
       if: ${{ runner.os == 'Windows' && steps.cache-jemalloc-win.outputs.cache-hit != 'true' }}
-      uses: msys2/setup-msys2@v2
+      uses: msys2/setup-msys2@3c51bf698df1e37b2261f53cb67797b97761185c # v2.34.0
       with:
         msystem: MINGW64
         update: false
@@ -206,7 +206,7 @@ runs:
 
     - name: "Set up MSVC (Windows)"
       if: ${{ runner.os == 'Windows' && steps.cache-jemalloc-win.outputs.cache-hit != 'true' }}
-      uses: ilammy/msvc-dev-cmd@v1
+      uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
 
     - name: "Build Detours injector (Windows)"
       if: ${{ runner.os == 'Windows' && steps.cache-jemalloc-win.outputs.cache-hit != 'true' }}
@@ -225,7 +225,7 @@ runs:
 
     - name: "Save jemalloc (Windows)"
       if: ${{ runner.os == 'Windows' && steps.cache-jemalloc-win.outputs.cache-hit != 'true' }}
-      uses: actions/cache/save@v6
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ runner.temp }}\jemalloc-dist
         key: v9-Windows-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
@@ -254,7 +254,7 @@ runs:
     - name: "Restore jemalloc (macOS)"
       if: runner.os == 'macOS'
       id: cache-jemalloc-mac
-      uses: actions/cache/restore@v6
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ runner.temp }}/jemalloc-dist
         key: v9-macOS-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
@@ -286,7 +286,7 @@ runs:
 
     - name: "Save jemalloc (macOS)"
       if: ${{ runner.os == 'macOS' && steps.cache-jemalloc-mac.outputs.cache-hit != 'true' }}
-      uses: actions/cache/save@v6
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ runner.temp }}/jemalloc-dist
         key: v9-macOS-${{ runner.arch }}-jemalloc-${{ inputs.jemalloc-version }}
