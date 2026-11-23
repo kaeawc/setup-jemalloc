@@ -84,7 +84,7 @@ jobs:
               dnf install -y --allowerasing gcc make curl bzip2 tar ca-certificates zstd git
               ;;
             pacman)
-              pacman -Sy --noconfirm --needed gcc make curl bzip2 tar ca-certificates zstd git
+              pacman -Syu --noconfirm --needed gcc make curl bzip2 tar ca-certificates zstd git
               ;;
             zypper)
               # Leap images sometimes ship a broken/unreachable backports repo
